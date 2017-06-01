@@ -8,11 +8,12 @@
     "nodemon": "^1.11.0",
     "request": "^2.75.0",
     "request-promise": "^4.2.1",
+    "websocket": "^1.0.24",
     "ws": "^1.1.1"
   },
   "devDependencies": {},
   "scripts": {
-    "start": "set PORT=7001 && nodemon bot",
+    "start": "set PORT=7001 && nodemon ./src/bot",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Tim Porritt",
