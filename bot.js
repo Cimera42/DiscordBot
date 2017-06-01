@@ -1,4 +1,4 @@
-var request = require("request");
+var request = require("request-promise");
 
 var api = "https://discordapp.com/api";
 var guild_id = "132818688242876417";
@@ -6,9 +6,10 @@ var guild_id = "132818688242876417";
 
 var bot_token = "";
 
-function sendMessage(messageContent, channel)
+function sendMessage(messageContent, channel, embed)
 {
 	var options = {
+		method: "POST",
 		url: api + "/channels/" + channel + "/messages",
 		headers: {
 			"Authorization": "Bot " + bot_token,
@@ -16,18 +17,30 @@ function sendMessage(messageContent, channel)
 		body: {
 			"content": messageContent,
 		},
+		emded:embed,
 		json:true
 	};
-	request.post(options, function(err,res,body) {
-		if(err)
-			return console.log(err);
-
-		if(res.statusCode !== 200){
-			console.log('Invalid Status Code Returned: ' + res.statusCode);
-			return console.log(body);
-		}
-
+	request(options).then(body => {
 		console.log("Message created:", body);
+	}).catch(err => {
+		console.log('Error:' + err);
+	});
+}
+
+function getMessage(messageId, channel, callback)
+{
+	var options = {
+		method: "GET",
+		url: api + "/channels/" + channel + "/messages/" + messageId,
+		headers: {
+			"Authorization": "Bot " + bot_token,
+		},
+		json:true
+	};
+	request(options).then(body => {
+		callback(body);
+	}).catch(err => {
+		console.log('Error:' + err);
 	});
 }
 
@@ -89,17 +102,6 @@ request.get(api + "/gateway", function(err,res,body) {
 				}
 			});
 			ws.send(j);
-			
-			// var j2 = JSON.stringify({
-				// "op": 4,
-				// "d": {
-					// "guild_id": guild_id,
-					// "channel_id": "132818688242876418",
-					// "self_mute": false,
-					// "self_deaf": false,
-				// }
-			// });
-			// ws.send(j2);
 		}
 		else if(parsed.t == "MESSAGE_CREATE")
 		{
@@ -227,6 +229,21 @@ request.get(api + "/gateway", function(err,res,body) {
 						sendMessage("<@" + message.author.id + "> said: \n\t*" + message.content + "*", message.channel_id);
 					}*/
 				}
+			}
+		}
+		else if(parsed.t == "MESSAGE_REACTION_ADD")
+		{
+			var messageData = parsed.d;
+			//if(channels[messageData.channel_id] == true)
+			{
+				//console.log(messageData.emoji);
+				//sendMessage(messageData.emoji.name, messageData.channel_id);
+				console.log(messageData.emoji.name.split("").map(v=>v.charCodeAt(0)));
+				
+				getMessage(messageData.message_id, messageData.channel_id, msg => {
+					console.log(msg);
+					sendMessage(msg.content, messageData.channel_id);
+				});
 			}
 		}
 		//console.log(parsed);

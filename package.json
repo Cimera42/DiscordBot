@@ -5,12 +5,14 @@
   "main": "bot.js",
   "dependencies": {
     "cheerio": "^0.22.0",
+    "nodemon": "^1.11.0",
     "request": "^2.75.0",
+    "request-promise": "^4.2.1",
     "ws": "^1.1.1"
   },
   "devDependencies": {},
   "scripts": {
-	"start": "node bot",
+    "start": "set PORT=7001 && nodemon bot",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Tim Porritt",
