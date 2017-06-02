@@ -339,12 +339,12 @@ function connect(resume)
 if(bot_token)
 	start();
 
-// var http = require('http');
-// var server = http.createServer(function(req, res) {
-	// res.write("Running Discord Bot");
-	// res.end();
-// });
+var http = require('http');
+var server = http.createServer(function(req, res) {
+	res.write("Running Discord Bot");
+	res.end();
+});
 
-// server.listen(process.env.PORT, function(){
-    // console.log("Server started on ", process.env.PORT);
-// });
+server.listen(process.env.PORT, function(){
+    console.log("Server started on ", process.env.PORT);
+});
