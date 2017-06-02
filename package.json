@@ -13,7 +13,7 @@
   },
   "devDependencies": {},
   "scripts": {
-    "start": "set PORT=7001 && nodemon -e js",
+    "start": "set PORT=7001 && set DEBUG=websocket:connection && nodemon -e js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Tim Porritt",
