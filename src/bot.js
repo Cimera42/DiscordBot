@@ -4,7 +4,7 @@ var api = "https://discordapp.com/api";
 var guild_id = "132818688242876417";
 //var channel_id = "239253739305828352";
 
-var bot_token = "";
+var bot_token = null || process.env.bot_token;
 
 function sendMessage(messageContent, channel, embed)
 {
@@ -336,7 +336,8 @@ function connect(resume)
 	ws.connect(gateway);
 }
 
-start();
+if(bot_token)
+	start();
 
 // var http = require('http');
 // var server = http.createServer(function(req, res) {
