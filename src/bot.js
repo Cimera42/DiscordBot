@@ -279,9 +279,6 @@ function connect(resume)
 					var commandList = "";
 					commandList += "`here`: Tell the bot to watch for commands in this channel.";
 					commandList += "\n\n`nohere`: Tell the bot to stop watching for commands in this channel.";
-					commandList += "\n\n`is [term]`: (Image Search) Search for an image using the term and display a random one of ten.";
-					commandList += "\n\n`calc [equation]`: Get the answer to the equation. (if the result is 'answer', the equation is invalid)";
-					commandList += "\n\n`us [-d] [term]`: (Unicode Search) Search for unicode characters using the term. [-d] bypasses 30 result limit";
 					commandList += "\n\nAdd a :hash: react to quote a message";
 					sendMessage("Here you go <@" + message.author.id + ">\n" + commandList + "", message.channel_id);
 				}
@@ -340,6 +337,8 @@ function connect(resume)
 							getChannel(messageData.channel_id, channel => {
 								getGuildUser(msg.author.id, channel.guild_id, quotedUser => {
 									getGuildUser(messageData.user_id, channel.guild_id, quotingUser => {
+										console.log(now(), messageData.user_id + " quoted " + quotedUser.user.id + ": " + messageData.message_id);
+										
 										var d = ()=>(Math.floor(Math.random()*256)).toString(16);
 										var s = "0x"+d()+d()+d();
 										var m = "";

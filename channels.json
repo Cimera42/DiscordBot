@@ -1,6 +1,6 @@
 {
     "319388810385424384": {
-        "enabled": true,
+        "enabled": false,
         "mention": false
     },
     "319372036994498560": {
@@ -8,6 +8,10 @@
         "mention": false
     },
     "239298735509733378": {
+        "enabled": true,
+        "mention": false
+    },
+    "319373676049072128": {
         "enabled": true,
         "mention": false
     }
