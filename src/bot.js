@@ -158,7 +158,7 @@ function updateGame(ws, game)
 	ws.send(j);
 }
 
-function sendHeartbeat(ws)
+function sendHeartbeat(ws, interval)
 {
 	console.log(now(), "HEARTBEAT SENT", lastWebsocketSequence);
 	var heartbeatPackage = JSON.stringify({
@@ -166,14 +166,20 @@ function sendHeartbeat(ws)
 		"d": lastWebsocketSequence
 	});
 	ws.send(heartbeatPackage);
-	setTimeout(()=>checkHeartbeat(ws), 20000);
+	var timeoutTime = interval*(3/4);
+	setTimeout(()=>checkHeartbeat(ws,timeoutTime), timeoutTime);
 }
 
-function checkHeartbeat(ws)
+function checkHeartbeat(ws, timeoutTime)
 {
-	if(new Date().getTime() > lastHeartbeatAck.getTime()+20000)
+	if(new Date().getTime() > lastHeartbeatAck.getTime()+timeoutTime)
 	{
-		ws.close(1012, "No heartbeat acknowledgement received for 30 seconds");
+		ws.close(1012, "No heartbeat acknowledgement received for " + timeoutTime/1000 + " seconds");
+		console.log(now(), "No heartbeat acknowledgement received for " + timeoutTime/1000 + " seconds");
+		clearInterval(heartbeatTimer);
+		clearInterval(updateGameTimer);
+		console.log(now(), "Reconnecting...");
+		connect(true);
 	}
 }
 
@@ -185,6 +191,7 @@ function now()
 function connect(resume)
 {
 	var ws = new WebSocket(gateway);
+	console.log(now(), "Attempting connection...");
 	var heartbeatTimer;
 	var heartbeatInterval;
 	var updateGameTimer;
@@ -197,6 +204,7 @@ function connect(resume)
 	
 	ws.onclose = function(ev) {
 		console.log(now(), "Connection closed", ev.code,ev.reason);
+		
 		clearInterval(heartbeatTimer);
 		clearInterval(updateGameTimer);
 		setTimeout(()=>connect(true), 3000);
@@ -220,7 +228,7 @@ function connect(resume)
 			console.log(now(), parsed);
 			heartbeatInterval = parsed.d.heartbeat_interval;
 			heartbeatTimer = setInterval(function() {
-				sendHeartbeat(ws);
+				sendHeartbeat(ws, heartbeatInterval);
 			}, heartbeatInterval);
 			
 			if(resume)
