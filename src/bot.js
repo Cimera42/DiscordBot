@@ -21,12 +21,11 @@ function sendMessage(messageContent, channel, embed)
 		json:true
 	};
 	request(options).then(body => {
-		//console.log(now(), "Message created:", body);
+		//log("Message created:", body);
 	}).catch(err => {
-		console.log(now(), "Error createM: " + err);
+		log("Error createM: " + err);
 	});
 }
-
 function getMessage(messageId, channel, callback)
 {
 	var options = {
@@ -40,7 +39,7 @@ function getMessage(messageId, channel, callback)
 	request(options).then(body => {
 		callback(body);
 	}).catch(err => {
-		console.log(now(), "Error getM: " + err);
+		log("Error getM: " + err);
 	});
 }
 
@@ -57,7 +56,7 @@ function getGuildUser(userId, guildId, callback)
 	request(options).then(body => {
 		callback(body);
 	}).catch(err => {
-		console.log(now(), "Error getGu: " + err);
+		log("Error getGu: " + err);
 	});
 }
 
@@ -74,7 +73,7 @@ function getGuildRoles(guildId, callback)
 	request(options).then(body => {
 		callback(body);
 	}).catch(err => {
-		console.log(now(), "Error getGr: " + err);
+		log("Error getGr: " + err);
 	});
 }
 
@@ -91,7 +90,7 @@ function getChannel(channelId, callback)
 	request(options).then(body => {
 		callback(body);
 	}).catch(err => {
-		console.log(now(), "Error getCh: " + err);
+		log("Error getCh: " + err);
 	});
 }
 
@@ -108,7 +107,7 @@ function deleteReact(channelId, messageId, emoji, userId)
 	request(options).then(body => {
 		
 	}).catch(err => {
-		console.log(now(), "Error delRe: " + err);
+		log("Error delRe: " + err);
 	});
 }
 
@@ -132,7 +131,7 @@ function checkChannel(message)
 	if(!channels[message.channel_id])
 	{
 		channels[message.channel_id] = {enabled:false, mention:false};
-		console.log(now(), "Adding channel " + message.channel_id);
+		log("Adding channel " + message.channel_id);
 	}
 }
 
@@ -162,7 +161,7 @@ function updateGame(ws, game)
 
 function sendHeartbeat(ws, interval)
 {
-	console.log(now(), "HEARTBEAT SENT", lastWebsocketSequence);
+	log("HEARTBEAT SENT", lastWebsocketSequence);
 	var heartbeatPackage = JSON.stringify({
 		"op": 1,
 		"d": lastWebsocketSequence
@@ -177,66 +176,75 @@ function checkHeartbeat(ws, timeoutTime)
 	if(new Date().getTime() > lastHeartbeatAck.getTime()+timeoutTime)
 	{
 		ws.close(1012, "No heartbeat acknowledgement received for " + timeoutTime/1000 + " seconds");
-		console.log(now(), "No heartbeat acknowledgement received for " + timeoutTime/1000 + " seconds");
+		log("No heartbeat acknowledgement received for " + timeoutTime/1000 + " seconds");
 		clearInterval(heartbeatTimer);
 		clearInterval(updateGameTimer);
-		console.log(now(), "Reconnecting...");
+		log("Reconnecting...");
 		connect(true);
 	}
 }
 
 function now()
 {
-	return "[" + new Date().toLocaleTimeString("en-au", {hour12:false}) + "]";
+	return "[" + new Date().toLocaleString("en-au", {hour12:false}) + "]";
 }
+function log()
+{
+	var s = now();
+	for(key in arguments)
+		s += " " + JSON.stringify(arguments[key]);
+	console.log(s);
+	fs.appendFileSync("log.log", s + "\r\n");
+}
+
 
 function connect(resume)
 {
 	var ws = new WebSocket(gateway);
-	console.log(now(), "Attempting connection...");
+	log("Attempting connection...");
 	var heartbeatInterval;
 	
 	channels = JSON.parse(fs.readFileSync("./channels.json").toString());
 	
 	ws.onopen = function(ev) {
-		console.log(now(), "Connection opened");
+		log("Connection opened");
 	};
 	
 	ws.onclose = function(ev) {
-		console.log(now(), "Connection closed", ev.code,ev.reason);
+		log("Connection closed", ev.code,ev.reason);
 		
 		if(ev.code != 1012)
 		{
 			clearInterval(heartbeatTimer);
 			clearInterval(updateGameTimer);
-			console.log(now(), "Reconnecting...");
+			log("Reconnecting...");
 			setTimeout(()=>connect(true), 3000);
 		}
 	};
 	ws.onerror = function(ev) {
-		console.log(now(), "Websocket Error: ", ev);
+		log("Websocket Error: ", ev);
 		
 		ws.close(1012, "Websocket error");
 		clearInterval(heartbeatTimer);
 		clearInterval(updateGameTimer);
-		console.log(now(), "Reconnecting...");
+		log("Reconnecting...");
 		setTimeout(()=>connect(false), 8000);
 	};
 	ws.onmessage = function(ev) {
 		var message = ev.data;
 		var parsed = JSON.parse(message);
-		console.log(now(), parsed.op, parsed.s, parsed.t);
-		//console.log(now(), parsed);
+		log(parsed.op, parsed.s, parsed.t);
+		//log(parsed);
 		if(parsed.op === 9)
 		{
-			console.log(now(), "Invalid session, restarting connection in 8 seconds");
+			log("Invalid session, restarting connection in 8 seconds");
 			clearInterval(heartbeatTimer);
 			clearInterval(updateGameTimer);
 			setTimeout(()=>connect(false), 8000);
 		}
 		else if(parsed.op === 10)
 		{
-			console.log(now(), parsed);
+			log(parsed);
 			heartbeatInterval = parsed.d.heartbeat_interval;
 			heartbeatTimer = setInterval(function() {
 				sendHeartbeat(ws, heartbeatInterval);
@@ -356,7 +364,7 @@ function connect(resume)
 							getChannel(messageData.channel_id, channel => {
 								getGuildUser(msg.author.id, channel.guild_id, quotedUser => {
 									getGuildUser(messageData.user_id, channel.guild_id, quotingUser => {
-										console.log(now(), messageData.user_id + " quoted " + quotedUser.user.id + ": " + messageData.message_id);
+										log(messageData.user_id + " quoted " + quotedUser.user.id + ": " + messageData.message_id);
 										
 										var d = ()=>(Math.floor(Math.random()*256)).toString(16);
 										var s = "0x"+d()+d()+d();
@@ -404,5 +412,5 @@ if(bot_token)
 // });
 
 // server.listen(process.env.PORT, function(){
-    // console.log(now(), "Server started on ", process.env.PORT);
+    // log("Server started on ", process.env.PORT);
 // });
