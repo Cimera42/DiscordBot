@@ -12,7 +12,7 @@ function sendMessage(messageContent, channel, embed)
 		method: "POST",
 		url: api + "/channels/" + channel + "/messages",
 		headers: {
-			"Authorization": "Bot " + bot_token,
+			"Authorization": "Bot " + bot_token
 		},
 		body: {
 			"content": messageContent,
@@ -23,7 +23,7 @@ function sendMessage(messageContent, channel, embed)
 	request(options).then(body => {
 		//console.log(now(), "Message created:", body);
 	}).catch(err => {
-		console.log(now(), 'Error createM: ' + err);
+		console.log(now(), "Error createM: " + err);
 	});
 }
 
@@ -33,14 +33,14 @@ function getMessage(messageId, channel, callback)
 		method: "GET",
 		url: api + "/channels/" + channel + "/messages/" + messageId,
 		headers: {
-			"Authorization": "Bot " + bot_token,
+			"Authorization": "Bot " + bot_token
 		},
 		json:true
 	};
 	request(options).then(body => {
 		callback(body);
 	}).catch(err => {
-		console.log(now(), 'Error getM: ' + err);
+		console.log(now(), "Error getM: " + err);
 	});
 }
 
@@ -50,14 +50,14 @@ function getGuildUser(userId, guildId, callback)
 		method: "GET",
 		url: api + "/guilds/" + guildId + "/members/" + userId,
 		headers: {
-			"Authorization": "Bot " + bot_token,
+			"Authorization": "Bot " + bot_token
 		},
 		json:true
 	};
 	request(options).then(body => {
 		callback(body);
 	}).catch(err => {
-		console.log(now(), 'Error getGu: ' + err);
+		console.log(now(), "Error getGu: " + err);
 	});
 }
 
@@ -67,14 +67,14 @@ function getGuildRoles(guildId, callback)
 		method: "GET",
 		url: api + "/guilds/" + guildId + "/roles",
 		headers: {
-			"Authorization": "Bot " + bot_token,
+			"Authorization": "Bot " + bot_token
 		},
 		json:true
 	};
 	request(options).then(body => {
 		callback(body);
 	}).catch(err => {
-		console.log(now(), 'Error getGr: ' + err);
+		console.log(now(), "Error getGr: " + err);
 	});
 }
 
@@ -84,14 +84,14 @@ function getChannel(channelId, callback)
 		method: "GET",
 		url: api + "/channels/" + channelId,
 		headers: {
-			"Authorization": "Bot " + bot_token,
+			"Authorization": "Bot " + bot_token
 		},
 		json:true
 	};
 	request(options).then(body => {
 		callback(body);
 	}).catch(err => {
-		console.log(now(), 'Error getCh: ' + err);
+		console.log(now(), "Error getCh: " + err);
 	});
 }
 
@@ -101,14 +101,14 @@ function deleteReact(channelId, messageId, emoji, userId)
 		method: "DELETE",
 		url: api + "/channels/" + channelId + "/messages/" + messageId + "/reactions/" + emoji + "/" + userId,
 		headers: {
-			"Authorization": "Bot " + bot_token,
+			"Authorization": "Bot " + bot_token
 		},
 		json:true
 	};
 	request(options).then(body => {
 		
 	}).catch(err => {
-		console.log(now(), 'Error delRe: ' + err);
+		console.log(now(), "Error delRe: " + err);
 	});
 }
 
@@ -118,6 +118,8 @@ var fs = require("fs");
 
 var gateway;
 var lastHeartbeatAck;
+var heartbeatTimer;
+var updateGameTimer;
 var lastWebsocketSequence = null;
 var websocketSessionId = null;
 var channels;
@@ -192,9 +194,7 @@ function connect(resume)
 {
 	var ws = new WebSocket(gateway);
 	console.log(now(), "Attempting connection...");
-	var heartbeatTimer;
 	var heartbeatInterval;
-	var updateGameTimer;
 	
 	channels = JSON.parse(fs.readFileSync("./channels.json").toString());
 	
@@ -205,13 +205,22 @@ function connect(resume)
 	ws.onclose = function(ev) {
 		console.log(now(), "Connection closed", ev.code,ev.reason);
 		
-		clearInterval(heartbeatTimer);
-		clearInterval(updateGameTimer);
-		setTimeout(()=>connect(true), 3000);
+		if(ev.code != 1012)
+		{
+			clearInterval(heartbeatTimer);
+			clearInterval(updateGameTimer);
+			console.log(now(), "Reconnecting...");
+			setTimeout(()=>connect(true), 3000);
+		}
 	};
 	ws.onerror = function(ev) {
-		console.log(now(), "E", ev);
-		console.log(now(), "Websocket Error: ", err);
+		console.log(now(), "Websocket Error: ", ev);
+		
+		ws.close(1012, "Websocket error");
+		clearInterval(heartbeatTimer);
+		clearInterval(updateGameTimer);
+		console.log(now(), "Reconnecting...");
+		setTimeout(()=>connect(false), 8000);
 	};
 	ws.onmessage = function(ev) {
 		var message = ev.data;
@@ -221,7 +230,9 @@ function connect(resume)
 		if(parsed.op === 9)
 		{
 			console.log(now(), "Invalid session, restarting connection in 8 seconds");
-			setTimeout(()=>connect(true), 8000);
+			clearInterval(heartbeatTimer);
+			clearInterval(updateGameTimer);
+			setTimeout(()=>connect(false), 8000);
 		}
 		else if(parsed.op === 10)
 		{
@@ -377,7 +388,14 @@ function connect(resume)
 }
 
 if(bot_token)
-	start();
+{
+	try {
+		start();
+	} catch(e) {
+		fs.writeFileSync((new Date().getTime()) + "_crash.err", JSON.stringify(e));
+	}
+	
+}
 
 // var http = require('http');
 // var server = http.createServer(function(req, res) {
