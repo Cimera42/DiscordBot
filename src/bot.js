@@ -324,6 +324,7 @@ function connect(resume)
 										channels[message.channel_id].enabled = true;
 										syncChannels();
 										sendMessage("Now doing things in this channel :stuck_out_tongue:", message.channel_id);
+										return true;
 									}
 								})
 							})
@@ -345,6 +346,7 @@ function connect(resume)
 										channels[message.channel_id].enabled = false;
 										syncChannels();
 										sendMessage("No longer doing things in this channel :sob:", message.channel_id);
+										return true;
 									}
 								})
 							})
@@ -374,15 +376,44 @@ function connect(resume)
 										else if(!channels[messageData.channel_id].mention)
 											m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";
 										
-										sendMessage(m, messageData.channel_id, {
+										var re = new RegExp("https?:\/\/[^ \n]+\.(jpg|png)", "i");
+										
+										var embed = {
 											"color": parseInt(s),
 											"timestamp": msg.timestamp,
 											"author": {
 												"name": quotedUser.nick || quotedUser.user.username,
 												"icon_url": quotedUser.user.avatar && "https://cdn.discordapp.com/avatars/" + quotedUser.user.id + "/" + quotedUser.user.avatar + ".png",
 											},
-											"description": msg.content
-										});
+											"description": msg.content,
+										};
+										var img = re.exec(msg.content);
+										if(img !== null)
+										{
+											embed["image"] = {
+													"url":re.exec(msg.content)[0]
+												};
+										}
+										else
+										{
+											msg.attachments.some(v => {
+												var im = re.exec(v.url);
+												if(im !== null)
+												{
+													embed["image"] = {
+															"url":im[0]
+														};
+												}
+												else
+												{
+													embed["description"] += "\n\n";
+													embed["description"] += "**Attachment**: [";
+													embed["description"] += v.filename + "](" + v.url + ")";
+												}
+											});
+										}
+										
+										sendMessage(m, messageData.channel_id, embed);
 										deleteReact(channel.id, messageData.message_id, "%23%E2%83%A3", messageData.user_id);
 									});
 								});
@@ -402,7 +433,10 @@ if(bot_token)
 	} catch(e) {
 		fs.writeFileSync((new Date().getTime()) + "_crash.err", JSON.stringify(e));
 	}
-	
+}
+else
+{
+	log("No bot token provided");
 }
 
 // var http = require('http');
