@@ -1,8 +1,6 @@
 var request = require("request-promise");
 
 var api = "https://discordapp.com/api";
-var guild_id = "132818688242876417";
-//var channel_id = "239253739305828352";
 
 var bot_token = null || process.env.bot_token;
 
@@ -137,11 +135,22 @@ function checkChannel(message)
 
 function start()
 {
-	request.get(api + "/gateway", function(err,res,body) {
-		var jsonBody = JSON.parse(body);
+	var options = {
+		method: "GET",
+		url: api + "/gateway/bot",
+		headers: {
+			"Authorization": "Bot " + bot_token
+		},
+		json:true
+	};
+	request(options).then(body => {
+		var jsonBody = body;
+		console.log(jsonBody);
 		gateway = jsonBody.url + "/?v=6&encoding=json";
 		
 		connect(false);
+	}).catch(err => {
+		log("Error getGateway: " + err);
 	});
 }
 
@@ -150,7 +159,9 @@ function updateGame(ws, game)
 	var j = JSON.stringify({
 		"op": 3,
 		"d": {
-			"idle_since": null,
+			"since": null,
+			"status": "online",
+			"afk": false,
 			"game": {
 				"name": game || "No Game",
 			}
@@ -167,7 +178,7 @@ function sendHeartbeat(ws, interval)
 		"d": lastWebsocketSequence
 	});
 	ws.send(heartbeatPackage);
-	var timeoutTime = interval*(3/4);
+	var timeoutTime = interval*(1/2);
 	setTimeout(()=>checkHeartbeat(ws,timeoutTime), timeoutTime);
 }
 
@@ -175,12 +186,15 @@ function checkHeartbeat(ws, timeoutTime)
 {
 	if(new Date().getTime() > lastHeartbeatAck.getTime()+timeoutTime)
 	{
-		ws.close(1012, "No heartbeat acknowledgement received for " + timeoutTime/1000 + " seconds");
-		log("No heartbeat acknowledgement received for " + timeoutTime/1000 + " seconds");
-		clearInterval(heartbeatTimer);
-		clearInterval(updateGameTimer);
-		log("Reconnecting...");
-		connect(true);
+		if(ws.readyState == ws.OPEN)
+		{
+			ws.close(1012, "No heartbeat acknowledgement received for " + timeoutTime/1000 + " seconds");
+			log("No heartbeat acknowledgement received for " + timeoutTime/1000 + " seconds");
+			clearInterval(heartbeatTimer);
+			clearInterval(updateGameTimer);
+			log("Reconnecting...");
+			connect(true);
+		}
 	}
 }
 
@@ -192,7 +206,16 @@ function log()
 {
 	var s = now();
 	for(key in arguments)
-		s += " " + JSON.stringify(arguments[key]);
+	{
+		try
+		{
+			s += " " + JSON.stringify(arguments[key]);
+		}
+		catch(e)
+		{
+			s += " [INVALID JSON OBJECT]";
+		}
+	}
 	console.log(s);
 	fs.appendFileSync("log.log", s + "\r\n");
 }
@@ -215,20 +238,21 @@ function connect(resume)
 		
 		if(ev.code != 1012)
 		{
-			clearInterval(heartbeatTimer);
-			clearInterval(updateGameTimer);
-			log("Reconnecting...");
-			setTimeout(()=>connect(true), 3000);
+			if(ws.readyState == ws.CLOSED)
+			{
+				clearInterval(heartbeatTimer);
+				clearInterval(updateGameTimer);
+				log("Reconnecting...");
+				setTimeout(()=>connect(true), 5000);
+			}
+		}
+		else
+		{
+			log("Not triggering reconnect")
 		}
 	};
 	ws.onerror = function(ev) {
 		log("Websocket Error: ", ev);
-		
-		ws.close(1012, "Websocket error");
-		clearInterval(heartbeatTimer);
-		clearInterval(updateGameTimer);
-		log("Reconnecting...");
-		setTimeout(()=>connect(false), 8000);
 	};
 	ws.onmessage = function(ev) {
 		var message = ev.data;
@@ -270,10 +294,8 @@ function connect(resume)
 						"token": bot_token,
 						"properties": {
 							"$os": "linux",
-							"$browser": "node.js",
-							"$device": "desktop",
-							"$referrer": "",
-							"$referring_domain": "",
+							"$browser": "QuoteBot",
+							"$device": "QuoteBot",
 						},
 						"compress": false,
 						"large_threshold": 250,
