@@ -1,117 +1,14 @@
-var request = require("request-promise");
+const request = require("request-promise");
 
-var api = "https://discordapp.com/api";
+const bot_token = null || process.env.bot_token;
+const api = "https://discordapp.com/api";
 
-var bot_token = null || process.env.bot_token;
+const log = require("./log.js");
+const dr = require("./discordRequests.js");
 
-function sendMessage(messageContent, channel, embed)
-{
-	var options = {
-		method: "POST",
-		url: api + "/channels/" + channel + "/messages",
-		headers: {
-			"Authorization": "Bot " + bot_token
-		},
-		body: {
-			"content": messageContent,
-			"embed": embed
-		},
-		json:true
-	};
-	request(options).then(body => {
-		//log("Message created:", body);
-	}).catch(err => {
-		log("Error createM: " + err);
-	});
-}
-function getMessage(messageId, channel, callback)
-{
-	var options = {
-		method: "GET",
-		url: api + "/channels/" + channel + "/messages/" + messageId,
-		headers: {
-			"Authorization": "Bot " + bot_token
-		},
-		json:true
-	};
-	request(options).then(body => {
-		callback(body);
-	}).catch(err => {
-		log("Error getM: " + err);
-	});
-}
-
-function getGuildUser(userId, guildId, callback)
-{
-	var options = {
-		method: "GET",
-		url: api + "/guilds/" + guildId + "/members/" + userId,
-		headers: {
-			"Authorization": "Bot " + bot_token
-		},
-		json:true
-	};
-	request(options).then(body => {
-		callback(body);
-	}).catch(err => {
-		log("Error getGu: " + err);
-	});
-}
-
-function getGuildRoles(guildId, callback)
-{
-	var options = {
-		method: "GET",
-		url: api + "/guilds/" + guildId + "/roles",
-		headers: {
-			"Authorization": "Bot " + bot_token
-		},
-		json:true
-	};
-	request(options).then(body => {
-		callback(body);
-	}).catch(err => {
-		log("Error getGr: " + err);
-	});
-}
-
-function getChannel(channelId, callback)
-{
-	var options = {
-		method: "GET",
-		url: api + "/channels/" + channelId,
-		headers: {
-			"Authorization": "Bot " + bot_token
-		},
-		json:true
-	};
-	request(options).then(body => {
-		callback(body);
-	}).catch(err => {
-		log("Error getCh: " + err);
-	});
-}
-
-function deleteReact(channelId, messageId, emoji, userId)
-{
-	var options = {
-		method: "DELETE",
-		url: api + "/channels/" + channelId + "/messages/" + messageId + "/reactions/" + emoji + "/" + userId,
-		headers: {
-			"Authorization": "Bot " + bot_token
-		},
-		json:true
-	};
-	request(options).then(body => {
-		
-	}).catch(err => {
-		log("Error delRe: " + err);
-	});
-}
-
-var WebSocket = require("ws");
-var cheerio = require("cheerio");
-var fs = require("fs");
+const WebSocket = require("ws");
+const cheerio = require("cheerio");
+const fs = require("fs");
 
 var gateway;
 var lastHeartbeatAck;
@@ -133,24 +30,35 @@ function checkChannel(message)
 	}
 }
 
+function checkRoles(roleMask, channel_id, author_id, guild_id)
+{
+	return new Promise((resolve, reject) => {
+		dr.getChannel(message.channel_id).then(channel => {
+			dr.getGuildUser(message.author.id, channel.guild_id).then(user => {
+				dr.getGuildRoles(channel.guild_id).then(roles => {
+					var rids = user.roles;
+					var r2ids = roles.map(v=>v.id);
+					roles.filter(v => rids.includes(v.id)).some(v=>{
+						var p = v.permissions & roleMask;
+						if(p > 0)
+							resolve(true);
+						else 
+							resolve(false);
+					});
+				});
+			});
+		});
+	});
+}
+
 function start()
 {
-	var options = {
-		method: "GET",
-		url: api + "/gateway/bot",
-		headers: {
-			"Authorization": "Bot " + bot_token
-		},
-		json:true
-	};
-	request(options).then(body => {
+	dr.getGateway().then(body => {
 		var jsonBody = body;
 		console.log(jsonBody);
 		gateway = jsonBody.url + "/?v=6&encoding=json";
 		
 		connect(false);
-	}).catch(err => {
-		log("Error getGateway: " + err);
 	});
 }
 
@@ -196,28 +104,6 @@ function checkHeartbeat(ws, timeoutTime)
 			connect(true);
 		}
 	}
-}
-
-function now()
-{
-	return "[" + new Date().toLocaleString("en-au", {hour12:false}) + "]";
-}
-function log()
-{
-	var s = now();
-	for(key in arguments)
-	{
-		try
-		{
-			s += " " + JSON.stringify(arguments[key]);
-		}
-		catch(e)
-		{
-			s += " [INVALID JSON OBJECT]";
-		}
-	}
-	console.log(s);
-	fs.appendFileSync("log.log", s + "\r\n");
 }
 
 
@@ -329,51 +215,37 @@ function connect(resume)
 					commandList += "`here`: Tell the bot to watch for commands in this channel.";
 					commandList += "\n\n`nohere`: Tell the bot to stop watching for commands in this channel.";
 					commandList += "\n\nAdd a :hash: react to quote a message";
-					sendMessage("Here you go <@" + message.author.id + ">\n" + commandList + "", message.channel_id);
+
+					dr.sendMessage("Here you go <@" + message.author.id + ">\n" + commandList + "", 
+									message.channel_id);
 				}
 				else if(message.content == prefix + "here")
 				{
-					getChannel(message.channel_id, channel => {
-						getGuildUser(message.author.id, channel.guild_id, user => {
-							getGuildRoles(channel.guild_id, roles => {
-								var rids = user.roles;
-								var r2ids = roles.map(v=>v.id);
-								roles.filter(v=>rids.includes(v.id)).some(v=>{
-									var p = v.permissions & 0x00000008;
-									if(p > 0)
-									{
-										checkChannel(message);
-										channels[message.channel_id].enabled = true;
-										syncChannels();
-										sendMessage("Now doing things in this channel :stuck_out_tongue:", message.channel_id);
-										return true;
-									}
-								})
-							})
-						})
-					});	
+					checkRoles(0x00000008, message.channel_id, message.author.id, channel.guild_id)
+						.then(result => {
+							if(result)
+							{
+								checkChannel(message);
+								channels[message.channel_id].enabled = true;
+								syncChannels();
+								dr.sendMessage("Now doing things in this channel :stuck_out_tongue:", message.channel_id);
+								return true;
+							}
+					});
 				}
 				else if(message.content == prefix + "nohere")
 				{
-					getChannel(message.channel_id, channel => {
-						getGuildUser(message.author.id, channel.guild_id, user => {
-							getGuildRoles(channel.guild_id, roles => {
-								var rids = user.roles;
-								var r2ids = roles.map(v=>v.id);
-								roles.filter(v=>rids.includes(v.id)).some(v=>{
-									var p = v.permissions & 0x00000008;
-									if(p > 0)
-									{
-										checkChannel(message);
-										channels[message.channel_id].enabled = false;
-										syncChannels();
-										sendMessage("No longer doing things in this channel :sob:", message.channel_id);
-										return true;
-									}
-								})
-							})
-						})
-					});
+					checkRoles(0x00000008, message.channel_id, message.author.id, channel.guild_id)
+						.then(result => {
+							if(result)
+							{
+								checkChannel(message);
+								channels[message.channel_id].enabled = false;
+								syncChannels();
+								dr.sendMessage("No longer doing things in this channel :sob:", message.channel_id);
+								return true;
+							}
+					});				
 				}
 			}
 			else if(parsed.t == "MESSAGE_REACTION_ADD")
@@ -384,10 +256,10 @@ function connect(resume)
 				{
 					if(messageData.emoji.name.includes("#"))
 					{
-						getMessage(messageData.message_id, messageData.channel_id, msg => {
-							getChannel(messageData.channel_id, channel => {
-								getGuildUser(msg.author.id, channel.guild_id, quotedUser => {
-									getGuildUser(messageData.user_id, channel.guild_id, quotingUser => {
+						dr.getMessage(messageData.message_id, messageData.channel_id, msg => {
+							dr.getChannel(messageData.channel_id, channel => {
+								dr.getGuildUser(msg.author.id, channel.guild_id, quotedUser => {
+									dr.getGuildUser(messageData.user_id, channel.guild_id, quotingUser => {
 										log(messageData.user_id + " quoted " + quotedUser.user.id + ": " + messageData.message_id);
 										
 										var d = ()=>(Math.floor(Math.random()*256)).toString(16);
@@ -460,13 +332,3 @@ else
 {
 	log("No bot token provided");
 }
-
-// var http = require('http');
-// var server = http.createServer(function(req, res) {
-	// res.write("Running Discord Bot");
-	// res.end();
-// });
-
-// server.listen(process.env.PORT, function(){
-    // log("Server started on ", process.env.PORT);
-// });
