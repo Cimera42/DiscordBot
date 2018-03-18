@@ -7,59 +7,69 @@ const log = require("./log.js");
 const dr = require("./discordRequests.js");
 
 const WebSocket = require("ws");
-const cheerio = require("cheerio");
 const fs = require("fs");
 
-var gateway;
+let gatewayURL;
 var lastHeartbeatAck;
 var heartbeatTimer;
 var updateGameTimer;
 var lastWebsocketSequence = null;
 var websocketSessionId = null;
 var channels;
-function syncChannels()
+var responses;
+
+function readChannels()
 {
-	fs.writeFileSync("./channels.json", JSON.stringify(channels,null,4));
+	channels = JSON.parse(fs.readFileSync("./channels.json").toString());
 }
-function checkChannel(message)
+function writeChannels()
 {
-	if(!channels[message.channel_id])
+	fs.writeFile("./channels.json", JSON.stringify(channels,null,4), err => {if(err) log(err)});
+}
+function addChannel(message)
+{
+	if(!channels.hasOwnProperty(message.channel_id))
 	{
 		channels[message.channel_id] = {enabled:false, mention:false};
 		log("Adding channel " + message.channel_id);
 	}
 }
 
-function checkRoles(roleMask, channel_id, author_id, guild_id)
+function readResponses()
 {
-	return new Promise((resolve, reject) => {
-		dr.getChannel(message.channel_id).then(channel => {
-			dr.getGuildUser(message.author.id, channel.guild_id).then(user => {
-				dr.getGuildRoles(channel.guild_id).then(roles => {
-					var rids = user.roles;
-					var r2ids = roles.map(v=>v.id);
-					roles.filter(v => rids.includes(v.id)).some(v=>{
-						var p = v.permissions & roleMask;
-						if(p > 0)
-							resolve(true);
-						else 
-							resolve(false);
-					});
-				});
-			});
-		});
+	responses = JSON.parse(fs.readFileSync("./responses.json").toString());
+}
+function writeResponses()
+{
+	fs.writeFile("./responses.json", JSON.stringify(responses,null,4), err => {if(err) log(err)});
+}
+
+async function checkHasRoles(roleMask, channel_id, author_id)
+{
+	const channel = await dr.getChannel(channel_id);
+	const user = await dr.getGuildUser(author_id, channel.guild_id);
+	const roles = await dr.getGuildRoles(channel.guild_id);
+
+	var rids = user.roles;
+	var r2ids = roles.map(v=>v.id);
+	return roles.filter(v => rids.includes(v.id)).some(v=>{
+		var p = v.permissions & roleMask;
+		if(p > 0)
+			return true;
+		else 
+			return false;
 	});
 }
 
-function start()
+async function start()
 {
-	dr.getGateway().then(body => {
-		var jsonBody = body;
-		console.log(jsonBody);
-		gateway = jsonBody.url + "/?v=6&encoding=json";
-		
-		connect(false);
-	});
+	const body = await dr.getGateway();
+
+	var jsonBody = body;
+	console.log(jsonBody);
+	gatewayURL = jsonBody.url + "/?v=6&encoding=json";
+	
+	connect(false);
 }
 
 function updateGame(ws, game)
@@ -106,227 +116,251 @@ function checkHeartbeat(ws, timeoutTime)
 	}
 }
 
-
 function connect(resume)
 {
-	var ws = new WebSocket(gateway);
+	var ws = new WebSocket(gatewayURL);
 	log("Attempting connection...");
 	var heartbeatInterval;
 	
-	channels = JSON.parse(fs.readFileSync("./channels.json").toString());
+	readChannels();
+	readResponses();
 	
-	ws.onopen = function(ev) {
-		log("Connection opened");
-	};
+	ws.onopen = onOpen;
+	ws.onclose = onClose;
+	ws.onerror = onError;
+	ws.onmessage = onMessage.bind(null, ws, resume);
+}
+
+function onOpen(ev)
+{
+	log("Connection opened");
+}
+
+function onClose(ev)
+{
+	log("Connection closed", ev.code,ev.reason);
 	
-	ws.onclose = function(ev) {
-		log("Connection closed", ev.code,ev.reason);
-		
-		if(ev.code != 1012)
+	if(ev.code != 1012)
+	{
+		if(ws.readyState == ws.CLOSED)
 		{
-			if(ws.readyState == ws.CLOSED)
-			{
-				clearInterval(heartbeatTimer);
-				clearInterval(updateGameTimer);
-				log("Reconnecting...");
-				setTimeout(()=>connect(true), 5000);
-			}
+			clearInterval(heartbeatTimer);
+			clearInterval(updateGameTimer);
+			log("Reconnecting...");
+			setTimeout(()=>connect(true), 5000);
+		}
+	}
+	else
+	{
+		log("Not triggering reconnect")
+	}
+}
+
+function onError()
+{
+	log("Websocket Error: ", ev);	
+}
+
+async function onMessage(ws, resume, ev)
+{
+	var messageData = ev.data;
+	var parsed = JSON.parse(messageData);
+	log(parsed.op, parsed.s, parsed.t);
+
+	if(parsed.op === 9)
+	{
+		log("Invalid session, restarting connection in 8 seconds");
+		clearInterval(heartbeatTimer);
+		clearInterval(updateGameTimer);
+		setTimeout(()=>connect(false), 8000);
+	}
+	else if(parsed.op === 10)
+	{
+		log(parsed);
+		heartbeatInterval = parsed.d.heartbeat_interval;
+		heartbeatTimer = setInterval(function() {
+			sendHeartbeat(ws, heartbeatInterval);
+		}, heartbeatInterval);
+		
+		if(resume)
+		{
+			var j = JSON.stringify({
+				"op": 6,
+				"d": {
+					"token": bot_token,
+					"session_id": websocketSessionId,
+					"seq": lastWebsocketSequence
+				}
+			});
+			ws.send(j);
 		}
 		else
 		{
-			log("Not triggering reconnect")
+			var j = JSON.stringify({
+				"op": 2,
+				"d": {
+					"token": bot_token,
+					"properties": {
+						"$os": "linux",
+						"$browser": "QuoteBot",
+						"$device": "QuoteBot",
+					},
+					"compress": false,
+					"large_threshold": 250,
+				}
+			});
+			ws.send(j);
 		}
-	};
-	ws.onerror = function(ev) {
-		log("Websocket Error: ", ev);
-	};
-	ws.onmessage = function(ev) {
-		var message = ev.data;
-		var parsed = JSON.parse(message);
-		log(parsed.op, parsed.s, parsed.t);
-		//log(parsed);
-		if(parsed.op === 9)
+	}
+	else if(parsed.op === 11)
+	{
+		lastHeartbeatAck = new Date();
+	}
+	else if(parsed.op === 0)
+	{
+		lastWebsocketSequence = parsed.s || lastWebsocketSequence;
+		if(parsed.t === "READY")
 		{
-			log("Invalid session, restarting connection in 8 seconds");
-			clearInterval(heartbeatTimer);
-			clearInterval(updateGameTimer);
-			setTimeout(()=>connect(false), 8000);
-		}
-		else if(parsed.op === 10)
-		{
-			log(parsed);
-			heartbeatInterval = parsed.d.heartbeat_interval;
-			heartbeatTimer = setInterval(function() {
-				sendHeartbeat(ws, heartbeatInterval);
-			}, heartbeatInterval);
+			websocketSessionId = parsed.d.session_id;
 			
-			if(resume)
-			{
-				var j = JSON.stringify({
-					"op": 6,
-					"d": {
-						"token": bot_token,
-						"session_id": websocketSessionId,
-						"seq": lastWebsocketSequence
-					}
-				});
-				ws.send(j);
-			}
-			else
-			{
-				var j = JSON.stringify({
-					"op": 2,
-					"d": {
-						"token": bot_token,
-						"properties": {
-							"$os": "linux",
-							"$browser": "QuoteBot",
-							"$device": "QuoteBot",
-						},
-						"compress": false,
-						"large_threshold": 250,
-					}
-				});
-				ws.send(j);
-			}
+			var g = "No Game, Life";
+			updateGame(ws, g)
+			updateGameTimer = setInterval(() => updateGame(ws, g), heartbeatInterval*10);
 		}
-		else if(parsed.op === 11)
+		else if(parsed.t == "MESSAGE_CREATE")
 		{
-			lastHeartbeatAck = new Date();
-		}
-		else if(parsed.op === 0)
-		{
-			lastWebsocketSequence = parsed.s || lastWebsocketSequence;
-			if(parsed.t === "READY")
+			var messageData = parsed.d;
+			addChannel(messageData);
+			var prefix = "-";
+			if(messageData.content == prefix + "help")
 			{
-				websocketSessionId = parsed.d.session_id;
-				
-				var g = "No Game, Life";
-				updateGame(ws, g)
-				updateGameTimer = setInterval(() => updateGame(ws, g), heartbeatInterval*10);
-			}
-			else if(parsed.t == "MESSAGE_CREATE")
-			{
-				var message = parsed.d;
-				var prefix = "-";
-				if(message.content == prefix + "help")
-				{
-					var commandList = "";
-					commandList += "`here`: Tell the bot to watch for commands in this channel.";
-					commandList += "\n\n`nohere`: Tell the bot to stop watching for commands in this channel.";
-					commandList += "\n\nAdd a :hash: react to quote a message";
+				var commandList = "";
+				commandList += "`here`: Tell the bot to watch for commands in this channel.";
+				commandList += "\n\n`nohere`: Tell the bot to stop watching for commands in this channel.";
+				commandList += "\n\nAdd a :hash: react to quote a message";
 
-					dr.sendMessage("Here you go <@" + message.author.id + ">\n" + commandList + "", 
-									message.channel_id);
-				}
-				else if(message.content == prefix + "here")
+				dr.sendMessage("Here you go <@" + messageData.author.id + ">\n" + commandList + "", 
+								messageData.channel_id);
+			}
+			else if(messageData.content == prefix + "here")
+			{
+				const result = await checkHasRoles(0x00000008, messageData.channel_id, messageData.author.id);
+				console.log(result);
+
+				if(result)
 				{
-					checkRoles(0x00000008, message.channel_id, message.author.id, channel.guild_id)
-						.then(result => {
-							if(result)
-							{
-								checkChannel(message);
-								channels[message.channel_id].enabled = true;
-								syncChannels();
-								dr.sendMessage("Now doing things in this channel :stuck_out_tongue:", message.channel_id);
-								return true;
-							}
-					});
-				}
-				else if(message.content == prefix + "nohere")
-				{
-					checkRoles(0x00000008, message.channel_id, message.author.id, channel.guild_id)
-						.then(result => {
-							if(result)
-							{
-								checkChannel(message);
-								channels[message.channel_id].enabled = false;
-								syncChannels();
-								dr.sendMessage("No longer doing things in this channel :sob:", message.channel_id);
-								return true;
-							}
-					});				
+					addChannel(messageData);
+					channels[messageData.channel_id].enabled = true;
+					writeChannels();
+					dr.sendMessage("Now doing things in this channel :stuck_out_tongue:", messageData.channel_id);
 				}
 			}
-			else if(parsed.t == "MESSAGE_REACTION_ADD")
+			else if(channels[messageData.channel_id].enabled)
 			{
-				var messageData = parsed.d;
-				checkChannel(messageData);
-				if(channels[messageData.channel_id].enabled == true)
+				if(messageData.content == prefix + "nohere")
 				{
-					if(messageData.emoji.name.includes("#"))
+					const result = await checkHasRoles(0x00000008, messageData.channel_id, messageData.author.id);
+					
+					if(result)
 					{
-						dr.getMessage(messageData.message_id, messageData.channel_id, msg => {
-							dr.getChannel(messageData.channel_id, channel => {
-								dr.getGuildUser(msg.author.id, channel.guild_id, quotedUser => {
-									dr.getGuildUser(messageData.user_id, channel.guild_id, quotingUser => {
-										log(messageData.user_id + " quoted " + quotedUser.user.id + ": " + messageData.message_id);
-										
-										var d = ()=>(Math.floor(Math.random()*256)).toString(16);
-										var s = "0x"+d()+d()+d();
-										var m = "";
-										if(channels[messageData.channel_id].mention)
-											m = "<@!" + messageData.user_id + "> quoted <@!" + quotedUser.user.id + ">:";
-										else if(!channels[messageData.channel_id].mention)
-											m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";
-										
-										var re = new RegExp("https?:\/\/[^ \n]+\.(jpg|png)", "i");
-										
-										var embed = {
-											"color": parseInt(s),
-											"timestamp": msg.timestamp,
-											"author": {
-												"name": quotedUser.nick || quotedUser.user.username,
-												"icon_url": quotedUser.user.avatar && "https://cdn.discordapp.com/avatars/" + quotedUser.user.id + "/" + quotedUser.user.avatar + ".png",
-											},
-											"description": msg.content,
-										};
-										var img = re.exec(msg.content);
-										if(img !== null)
-										{
-											embed["image"] = {
-													"url":re.exec(msg.content)[0]
-												};
-										}
-										else
-										{
-											msg.attachments.some(v => {
-												var im = re.exec(v.url);
-												if(im !== null)
-												{
-													embed["image"] = {
-															"url":im[0]
-														};
-												}
-												else
-												{
-													embed["description"] += "\n\n";
-													embed["description"] += "**Attachment**: [";
-													embed["description"] += v.filename + "](" + v.url + ")";
-												}
-											});
-										}
-										
-										sendMessage(m, messageData.channel_id, embed);
-										deleteReact(channel.id, messageData.message_id, "%23%E2%83%A3", messageData.user_id);
-									});
-								});
-							});
+						addChannel(messageData);
+						channels[messageData.channel_id].enabled = false;
+						writeChannels();
+						dr.sendMessage("No longer doing things in this channel :sob:", messageData.channel_id);
+					}		
+				}
+				else if(messageData.content.startsWith(prefix + "addResponse"))
+				{
+					let newResponse = messageData.content.replace(/^.addResponse +/,"");
+					newResponse.trim();
+					if(newResponse.length >= 1)
+					{
+						responses.push(newResponse);
+						writeResponses();
+						dr.sendMessage("Added `" + newResponse + "`", messageData.channel_id);
+					}
+				}
+				else if(messageData.content.startsWith(prefix + "yesno"))
+				{
+					let n = responses.length;
+					let r = Math.floor(Math.random()*n);
+					dr.sendMessage("<@" + messageData.author.id + ">: " + responses[r], messageData.channel_id);
+				}
+			}
+		}
+		else if(parsed.t == "MESSAGE_REACTION_ADD")
+		{
+			var messageData = parsed.d;
+			addChannel(messageData);
+			if(channels[messageData.channel_id].enabled == true)
+			{
+				if(messageData.emoji.name.includes("#"))
+				{
+					const msg = await dr.getMessage(messageData.message_id, messageData.channel_id);
+					const channel = await dr.getChannel(messageData.channel_id);
+					const quotedUser = await dr.getGuildUser(msg.author.id, channel.guild_id);
+					const quotingUser = await dr.getGuildUser(messageData.user_id, channel.guild_id);
+
+					log(messageData.user_id + " quoted " + quotedUser.user.id + ": " + messageData.message_id);
+					
+					var d = ()=>(Math.floor(Math.random()*256)).toString(16);
+					var s = "0x"+d()+d()+d();
+					var m = "";
+					if(channels[messageData.channel_id].mention)
+						m = "<@!" + messageData.user_id + "> quoted <@!" + quotedUser.user.id + ">:";
+					else if(!channels[messageData.channel_id].mention)
+						m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";
+					
+					var re = new RegExp("https?:\/\/[^ \n]+\.(jpg|png)", "i");
+					
+					var embed = {
+						"color": parseInt(s),
+						"timestamp": msg.timestamp,
+						"author": {
+							"name": quotedUser.nick || quotedUser.user.username,
+							"icon_url": quotedUser.user.avatar && "https://cdn.discordapp.com/avatars/" + quotedUser.user.id + "/" + quotedUser.user.avatar + ".png",
+						},
+						"description": msg.content,
+					};
+					var img = re.exec(msg.content);
+					if(img !== null)
+					{
+						embed["image"] = {
+								"url":re.exec(msg.content)[0]
+							};
+					}
+					else
+					{
+						msg.attachments.some(v => {
+							var im = re.exec(v.url);
+							if(im !== null)
+							{
+								embed["image"] = {
+										"url":im[0]
+									};
+							}
+							else
+							{
+								embed["description"] += "\n\n";
+								embed["description"] += "**Attachment**: [";
+								embed["description"] += v.filename + "](" + v.url + ")";
+							}
 						});
 					}
+									
+					dr.sendMessage(m, messageData.channel_id, embed);
+					dr.deleteReact(channel.id, messageData.message_id, "%23%E2%83%A3", messageData.user_id);
 				}
 			}
 		}
-	};
+	}
 }
 
 if(bot_token)
 {
-	try {
-		start();
-	} catch(e) {
-		fs.writeFileSync((new Date().getTime()) + "_crash.err", JSON.stringify(e));
-	}
+	start();
+		
+	// fs.writeFile((new Date().getTime()) + "_crash.err", JSON.stringify(e), err => {if(err) log(err)});
 }
 else
 {

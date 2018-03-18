@@ -4,7 +4,7 @@ function now()
 {
 	return "[" + new Date().toLocaleString("en-au", {hour12:false}) + "]";
 }
-module.exports = () => {
+module.exports = function() {
 	var s = now();
 	for(key in arguments)
 	{
@@ -18,5 +18,5 @@ module.exports = () => {
 		}
 	}
 	console.log(s);
-	fs.appendFileSync("log.log", s + "\r\n");
+	fs.appendFile("log.log", s + "\r\n", err => {if(err) console.log(err)});
 }

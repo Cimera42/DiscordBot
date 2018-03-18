@@ -4,7 +4,6 @@
   "description": "",
   "main": "./src/bot.js",
   "dependencies": {
-    "cheerio": "^0.22.0",
     "nodemon": "^1.11.0",
     "request": "^2.75.0",
     "request-promise": "^4.2.1",
@@ -13,8 +12,8 @@
   },
   "devDependencies": {},
   "scripts": {
-    "start": "set PORT=7001 && set DEBUG=websocket:connection && node ./src/bot.js",
-    "refresh": "set PORT=7001 && set DEBUG=websocket:connection && nodemon -e js",
+    "start": "node ./src/bot.js",
+    "refresh": "nodemon -e js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Tim Porritt",
