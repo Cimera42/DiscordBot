@@ -1,6 +1,6 @@
 const request = require("request-promise");
 
-const bot_token = null || process.env.bot_token;
+const { bot_token, prefix } = require("./config.json");
 const api = "https://discordapp.com/api";
 
 const log = require("./log.js");
@@ -9,6 +9,8 @@ const dr = require("./discordRequests.js");
 const WebSocket = require("ws");
 const fs = require("fs");
 
+const fortune = require("./8ball.js");
+
 let gatewayURL;
 var lastHeartbeatAck;
 var heartbeatTimer;
@@ -16,7 +18,6 @@ var updateGameTimer;
 var lastWebsocketSequence = null;
 var websocketSessionId = null;
 var channels;
-var responses;
 
 function readChannels()
 {
@@ -33,15 +34,6 @@ function addChannel(message)
 		channels[message.channel_id] = {enabled:false, mention:false};
 		log("Adding channel " + message.channel_id);
 	}
-}
-
-function readResponses()
-{
-	responses = JSON.parse(fs.readFileSync("./responses.json").toString());
-}
-function writeResponses()
-{
-	fs.writeFile("./responses.json", JSON.stringify(responses,null,4), err => {if(err) log(err)});
 }
 
 async function checkHasRoles(roleMask, channel_id, author_id)
@@ -123,7 +115,7 @@ function connect(resume)
 	var heartbeatInterval;
 	
 	readChannels();
-	readResponses();
+	fortune.loadResponses();
 	
 	ws.onopen = onOpen;
 	ws.onclose = onClose;
@@ -232,7 +224,6 @@ async function onMessage(ws, resume, ev)
 			var messageData = parsed.d;
 			addChannel(messageData);
 			
-			var prefix = "-";
 			doCommand(prefix, commands.anywhere, messageData);
 			doCommand(prefix, commands.enabled, messageData);
 		}
@@ -307,18 +298,16 @@ async function onMessage(ws, resume, ev)
 if(bot_token)
 {
 	start();
-		
-	// fs.writeFile((new Date().getTime()) + "_crash.err", JSON.stringify(e), err => {if(err) log(err)});
 }
 else
 {
 	log("No bot token provided");
 }
 
-async function doCommand(prefix, commandList, messageData)
+async function doCommand(commandPrefix, commandList, messageData)
 {
 	let funcName = Object.keys(commandList).find(v => {
-		return messageData.content.startsWith(prefix + v)
+		return messageData.content.startsWith(commandPrefix + v)
 	})
 	if(funcName)
 	{
@@ -394,34 +383,6 @@ const commands = {
 				}		
 			}
 		},
-		addResponse: {
-			text: "Add response to 8ball command",
-			func: async (messageData) => {
-				let newResponse = messageData.content.replace(/^.addResponse +/,"");
-				newResponse.trim();
-				if(newResponse.length >= 1)
-				{
-					responses.push(newResponse);
-					writeResponses();
-					dr.sendMessage("Added `" + newResponse + "`", messageData.channel_id);
-				}
-			}
-		},
-		yesno: {
-			text: "Ask 8ball a question",
-			func: async (messageData) => {
-				let n = responses.length;
-				let r = Math.floor(Math.random()*n);
-				dr.sendMessage("<@" + messageData.author.id + ">: " + responses[r], messageData.channel_id);
-			}
-		},
-		responseList: {
-			text: "List 8ball responses",
-			func: async (messageData) => {
-				let list = "";
-				responses.forEach(v => list += v + "\n");
-				dr.sendMessage(list, messageData.channel_id);
-			}
-		}
+		...fortune.commands
 	}
 }

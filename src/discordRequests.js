@@ -2,6 +2,7 @@ const request = require("request-promise");
 const log = require("./log.js");
 
 const api = "https://discordapp.com/api";
+const { bot_token } = require("./config.json");
 
 const standardOptions = {
 	headers: {
