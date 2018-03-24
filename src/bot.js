@@ -231,62 +231,10 @@ async function onMessage(ws, resume, ev)
 		{
 			var messageData = parsed.d;
 			addChannel(messageData);
+			
 			var prefix = "-";
-			if(messageData.content == prefix + "help")
-			{
-				var commandList = "";
-				commandList += "`here`: Tell the bot to watch for commands in this channel.";
-				commandList += "\n\n`nohere`: Tell the bot to stop watching for commands in this channel.";
-				commandList += "\n\nAdd a :hash: react to quote a message";
-
-				dr.sendMessage("Here you go <@" + messageData.author.id + ">\n" + commandList + "", 
-								messageData.channel_id);
-			}
-			else if(messageData.content == prefix + "here")
-			{
-				const result = await checkHasRoles(0x00000008, messageData.channel_id, messageData.author.id);
-				console.log(result);
-
-				if(result)
-				{
-					addChannel(messageData);
-					channels[messageData.channel_id].enabled = true;
-					writeChannels();
-					dr.sendMessage("Now doing things in this channel :stuck_out_tongue:", messageData.channel_id);
-				}
-			}
-			else if(channels[messageData.channel_id].enabled)
-			{
-				if(messageData.content == prefix + "nohere")
-				{
-					const result = await checkHasRoles(0x00000008, messageData.channel_id, messageData.author.id);
-					
-					if(result)
-					{
-						addChannel(messageData);
-						channels[messageData.channel_id].enabled = false;
-						writeChannels();
-						dr.sendMessage("No longer doing things in this channel :sob:", messageData.channel_id);
-					}		
-				}
-				else if(messageData.content.startsWith(prefix + "addResponse"))
-				{
-					let newResponse = messageData.content.replace(/^.addResponse +/,"");
-					newResponse.trim();
-					if(newResponse.length >= 1)
-					{
-						responses.push(newResponse);
-						writeResponses();
-						dr.sendMessage("Added `" + newResponse + "`", messageData.channel_id);
-					}
-				}
-				else if(messageData.content.startsWith(prefix + "yesno"))
-				{
-					let n = responses.length;
-					let r = Math.floor(Math.random()*n);
-					dr.sendMessage("<@" + messageData.author.id + ">: " + responses[r], messageData.channel_id);
-				}
-			}
+			doCommand(prefix, commands.anywhere, messageData);
+			doCommand(prefix, commands.enabled, messageData);
 		}
 		else if(parsed.t == "MESSAGE_REACTION_ADD")
 		{
@@ -314,20 +262,20 @@ async function onMessage(ws, resume, ev)
 					var re = new RegExp("https?:\/\/[^ \n]+\.(jpg|png)", "i");
 					
 					var embed = {
-						"color": parseInt(s),
-						"timestamp": msg.timestamp,
-						"author": {
-							"name": quotedUser.nick || quotedUser.user.username,
-							"icon_url": quotedUser.user.avatar && "https://cdn.discordapp.com/avatars/" + quotedUser.user.id + "/" + quotedUser.user.avatar + ".png",
+						color: parseInt(s),
+						timestamp: msg.timestamp,
+						author: {
+							name: quotedUser.nick || quotedUser.user.username,
+							icon_url: quotedUser.user.avatar && "https://cdn.discordapp.com/avatars/" + quotedUser.user.id + "/" + quotedUser.user.avatar + ".png",
 						},
-						"description": msg.content,
+						description: msg.content,
 					};
 					var img = re.exec(msg.content);
 					if(img !== null)
 					{
-						embed["image"] = {
-								"url":re.exec(msg.content)[0]
-							};
+						embed.image = {
+							"url":re.exec(msg.content)[0]
+						};
 					}
 					else
 					{
@@ -335,15 +283,15 @@ async function onMessage(ws, resume, ev)
 							var im = re.exec(v.url);
 							if(im !== null)
 							{
-								embed["image"] = {
-										"url":im[0]
-									};
+								embed.image = {
+									"url":im[0]
+								};
 							}
 							else
 							{
-								embed["description"] += "\n\n";
-								embed["description"] += "**Attachment**: [";
-								embed["description"] += v.filename + "](" + v.url + ")";
+								embed.description += "\n\n";
+								embed.description += "**Attachment**: [";
+								embed.description += v.filename + "](" + v.url + ")";
 							}
 						});
 					}
@@ -365,4 +313,115 @@ if(bot_token)
 else
 {
 	log("No bot token provided");
+}
+
+async function doCommand(prefix, commandList, messageData)
+{
+	let funcName = Object.keys(commandList).find(v => {
+		return messageData.content.startsWith(prefix + v)
+	})
+	if(funcName)
+	{
+		commandList[funcName].func(messageData);
+	}
+}
+
+async function helpCommand(messageData)
+{
+	var d = ()=>(Math.floor(Math.random()*256)).toString(16);
+	var s = "0x"+d()+d()+d();
+	
+	let commandEmbed = {
+		title: "Commands",
+		description: "Add a :hash: react to quote a message",
+		color: parseInt(s),
+		fields: []
+	};
+	Object.keys(commands.anywhere).forEach(v => {
+		if(v && commands.anywhere[v].text.length)
+		commandEmbed.fields.push({
+			name: v,
+			value: commands.anywhere[v].text
+		});
+	});
+	Object.keys(commands.enabled).forEach(v => {
+		if(v && commands.enabled[v].text.length)
+		commandEmbed.fields.push({
+			name: v,
+			value: commands.enabled[v].text
+		});
+	});
+
+	console.log(commandEmbed);
+	dr.sendMessage("Here you go <@" + messageData.author.id + ">", 
+					messageData.channel_id, commandEmbed);
+}
+
+const commands = {
+	anywhere: {
+		help: {
+			text: "Show this text",
+			func: helpCommand,
+		},
+		here: {
+			text: "Tell the bot to watch for commands in this channel.",
+			func: async (messageData) => {
+				const result = await checkHasRoles(0x00000008, messageData.channel_id, messageData.author.id);
+				console.log(result);
+	
+				if(result)
+				{
+					addChannel(messageData);
+					channels[messageData.channel_id].enabled = true;
+					writeChannels();
+					dr.sendMessage("Now doing things in this channel :stuck_out_tongue:", messageData.channel_id);
+				}
+			}
+		}
+	},
+	enabled: {
+		nohere: {
+			text: "Tell the bot to stop watching for commands in this channel.",
+			func: async (messageData) => {
+				const result = await checkHasRoles(0x00000008, messageData.channel_id, messageData.author.id);
+						
+				if(result)
+				{
+					addChannel(messageData);
+					channels[messageData.channel_id].enabled = false;
+					writeChannels();
+					dr.sendMessage("No longer doing things in this channel :sob:", messageData.channel_id);
+				}		
+			}
+		},
+		addResponse: {
+			text: "Add response to 8ball command",
+			func: async (messageData) => {
+				let newResponse = messageData.content.replace(/^.addResponse +/,"");
+				newResponse.trim();
+				if(newResponse.length >= 1)
+				{
+					responses.push(newResponse);
+					writeResponses();
+					dr.sendMessage("Added `" + newResponse + "`", messageData.channel_id);
+				}
+			}
+		},
+		yesno: {
+			text: "Ask 8ball a question",
+			func: async (messageData) => {
+				let n = responses.length;
+				let r = Math.floor(Math.random()*n);
+				dr.sendMessage("<@" + messageData.author.id + ">: " + responses[r], messageData.channel_id);
+			}
+		},
+		responseList: {
+			text: "List 8ball responses",
+			func: async (messageData) => {
+				let list = "";
+				responses.forEach(v => list += v + "\n");
+				dr.sendMessage(list, messageData.channel_id);
+			}
+		}
+	}
 }
