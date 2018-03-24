@@ -10,6 +10,7 @@ const WebSocket = require("ws");
 const fs = require("fs");
 
 const fortune = require("./8ball.js");
+const channelOps = require("./channelOps.js");
 
 let gatewayURL;
 var lastHeartbeatAck;
@@ -17,41 +18,6 @@ var heartbeatTimer;
 var updateGameTimer;
 var lastWebsocketSequence = null;
 var websocketSessionId = null;
-var channels;
-
-function readChannels()
-{
-	channels = JSON.parse(fs.readFileSync("./channels.json").toString());
-}
-function writeChannels()
-{
-	fs.writeFile("./channels.json", JSON.stringify(channels,null,4), err => {if(err) log(err)});
-}
-function addChannel(message)
-{
-	if(!channels.hasOwnProperty(message.channel_id))
-	{
-		channels[message.channel_id] = {enabled:false, mention:false};
-		log("Adding channel " + message.channel_id);
-	}
-}
-
-async function checkHasRoles(roleMask, channel_id, author_id)
-{
-	const channel = await dr.getChannel(channel_id);
-	const user = await dr.getGuildUser(author_id, channel.guild_id);
-	const roles = await dr.getGuildRoles(channel.guild_id);
-
-	var rids = user.roles;
-	var r2ids = roles.map(v=>v.id);
-	return roles.filter(v => rids.includes(v.id)).some(v=>{
-		var p = v.permissions & roleMask;
-		if(p > 0)
-			return true;
-		else
-			return false;
-	});
-}
 
 async function start()
 {
@@ -114,7 +80,7 @@ function connect(resume)
 	log("Attempting connection...");
 	var heartbeatInterval;
 
-	readChannels();
+	channelOps.loadChannels();
 	fortune.loadResponses();
 
 	ws.onopen = onOpen;
@@ -222,16 +188,17 @@ async function onMessage(ws, resume, ev)
 		else if(parsed.t == "MESSAGE_CREATE")
 		{
 			var messageData = parsed.d;
-			addChannel(messageData);
+			channelOps.registerChannel(messageData);
 
 			doCommand(prefix, commands.anywhere, messageData);
-			doCommand(prefix, commands.enabled, messageData);
+			if(channelOps.isEnabled(messageData.channel_id))
+				doCommand(prefix, commands.enabled, messageData);
 		}
 		else if(parsed.t == "MESSAGE_REACTION_ADD")
 		{
 			var messageData = parsed.d;
-			addChannel(messageData);
-			if(channels[messageData.channel_id].enabled == true)
+			channelOps.registerChannel(messageData);
+			if(channelOps.isEnabled(messageData.channel_id))
 			{
 				if(messageData.emoji.name.includes("#"))
 				{
@@ -245,9 +212,9 @@ async function onMessage(ws, resume, ev)
 					var d = ()=>(Math.floor(Math.random()*256)).toString(16);
 					var s = "0x"+d()+d()+d();
 					var m = "";
-					if(channels[messageData.channel_id].mention)
+					if(channelOps.isMentionEnabled(messageData.channel_id))
 						m = "<@!" + messageData.user_id + "> quoted <@!" + quotedUser.user.id + ">:";
-					else if(!channels[messageData.channel_id].mention)
+					else
 						m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";
 
 					var re = new RegExp("https?:\/\/[^ \n]+\.(jpg|png)", "i");
@@ -326,22 +293,18 @@ async function helpCommand(messageData)
 		color: parseInt(s),
 		fields: []
 	};
-	Object.keys(commands.anywhere).forEach(v => {
-		if(v && commands.anywhere[v].text.length)
-		commandEmbed.fields.push({
-			name: v,
-			value: commands.anywhere[v].text
+	listCommands = (list) => {
+		Object.keys(list).forEach(v => {
+			if(v && list[v].text.length)
+			commandEmbed.fields.push({
+				name: v,
+				value: list[v].text
+			});
 		});
-	});
-	Object.keys(commands.enabled).forEach(v => {
-		if(v && commands.enabled[v].text.length)
-		commandEmbed.fields.push({
-			name: v,
-			value: commands.enabled[v].text
-		});
-	});
+	}
+	listCommands(commands.anywhere);
+	listCommands(commands.enabled);
 
-	console.log(commandEmbed);
 	dr.sendMessage("Here you go <@" + messageData.author.id + ">",
 					messageData.channel_id, commandEmbed);
 }
@@ -352,37 +315,10 @@ const commands = {
 			text: "Show this text",
 			func: helpCommand,
 		},
-		here: {
-			text: "Tell the bot to watch for commands in this channel.",
-			func: async (messageData) => {
-				const result = await checkHasRoles(0x00000008, messageData.channel_id, messageData.author.id);
-				console.log(result);
-
-				if(result)
-				{
-					addChannel(messageData);
-					channels[messageData.channel_id].enabled = true;
-					writeChannels();
-					dr.sendMessage("Now doing things in this channel :stuck_out_tongue:", messageData.channel_id);
-				}
-			}
-		}
+		...channelOps.commands.anywhere
 	},
 	enabled: {
-		nohere: {
-			text: "Tell the bot to stop watching for commands in this channel.",
-			func: async (messageData) => {
-				const result = await checkHasRoles(0x00000008, messageData.channel_id, messageData.author.id);
-
-				if(result)
-				{
-					addChannel(messageData);
-					channels[messageData.channel_id].enabled = false;
-					writeChannels();
-					dr.sendMessage("No longer doing things in this channel :sob:", messageData.channel_id);
-				}
-			}
-		},
+		...channelOps.commands.enabled,
 		...fortune.commands
 	}
 }
