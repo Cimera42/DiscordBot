@@ -1,6 +1,6 @@
 const request = require("request-promise");
 
-const { bot_token, prefix } = require("./config.json");
+const { bot_token, prefix, game } = require("./config.json");
 const api = "https://discordapp.com/api";
 
 const log = require("./log.js");
@@ -13,26 +13,78 @@ const fortune = require("./8ball.js");
 const channelOps = require("./channelOps.js");
 
 let gatewayURL;
-var lastHeartbeatAck;
-var heartbeatTimer;
-var updateGameTimer;
-var lastWebsocketSequence = null;
-var websocketSessionId = null;
+let lastHeartbeatAck;
+let heartbeatTimer;
+let updateGameTimer;
+let lastWebsocketSequence = null;
+let websocketSessionId = null;
+let heartbeatInterval;
+
+const commands = {
+	anywhere: {
+		help: {
+			text: "Show this text",
+			func: helpCommand,
+		},
+		...channelOps.commands.anywhere
+	},
+	enabled: {
+		...channelOps.commands.enabled,
+		...fortune.commands
+	}
+}
+
+async function doCommand(commandPrefix, commandList, messageData)
+{
+	let funcName = Object.keys(commandList).find(v => {
+		return messageData.content.startsWith(commandPrefix + v)
+	})
+	if(funcName)
+	{
+		commandList[funcName].func(messageData);
+	}
+}
+
+async function helpCommand(messageData)
+{
+	let d = ()=>(Math.floor(Math.random()*256)).toString(16);
+	let s = "0x"+d()+d()+d();
+
+	let commandEmbed = {
+		title: "Commands",
+		description: "Add a :hash: react to quote a message",
+		color: parseInt(s),
+		fields: []
+	};
+	listCommands = (list) => {
+		Object.keys(list).forEach(v => {
+			if(v && list[v].text.length)
+			commandEmbed.fields.push({
+				name: v,
+				value: list[v].text
+			});
+		});
+	}
+	listCommands(commands.anywhere);
+	listCommands(commands.enabled);
+
+	dr.sendMessage("Here you go <@" + messageData.author.id + ">",
+					messageData.channel_id, commandEmbed);
+}
 
 async function start()
 {
 	const body = await dr.getGateway();
 
-	var jsonBody = body;
-	console.log(jsonBody);
-	gatewayURL = jsonBody.url + "/?v=6&encoding=json";
+	console.log(body);
+	gatewayURL = body.url + "/?v=6&encoding=json";
 
 	connect(false);
 }
 
 function updateGame(ws, game)
 {
-	var j = JSON.stringify({
+	ws.send(JSON.stringify({
 		"op": 3,
 		"d": {
 			"since": null,
@@ -42,19 +94,18 @@ function updateGame(ws, game)
 				"name": game || "No Game",
 			}
 		}
-	});
-	ws.send(j);
+	}));
 }
 
 function sendHeartbeat(ws, interval)
 {
 	log("HEARTBEAT SENT", lastWebsocketSequence);
-	var heartbeatPackage = JSON.stringify({
+	const heartbeatPackage = JSON.stringify({
 		"op": 1,
 		"d": lastWebsocketSequence
 	});
 	ws.send(heartbeatPackage);
-	var timeoutTime = interval*(1/2);
+	let timeoutTime = interval*(1/2);
 	setTimeout(()=>checkHeartbeat(ws,timeoutTime), timeoutTime);
 }
 
@@ -76,9 +127,8 @@ function checkHeartbeat(ws, timeoutTime)
 
 function connect(resume)
 {
-	var ws = new WebSocket(gatewayURL);
+	let ws = new WebSocket(gatewayURL);
 	log("Attempting connection...");
-	var heartbeatInterval;
 
 	channelOps.loadChannels();
 	fortune.loadResponses();
@@ -121,8 +171,8 @@ function onError()
 
 async function onMessage(ws, resume, ev)
 {
-	var messageData = ev.data;
-	var parsed = JSON.parse(messageData);
+	const eventData = ev.data;
+	const parsed = JSON.parse(eventData);
 	log(parsed.op, parsed.s, parsed.t);
 
 	if(parsed.op === 9)
@@ -142,19 +192,18 @@ async function onMessage(ws, resume, ev)
 
 		if(resume)
 		{
-			var j = JSON.stringify({
+			ws.send(JSON.stringify({
 				"op": 6,
 				"d": {
 					"token": bot_token,
 					"session_id": websocketSessionId,
 					"seq": lastWebsocketSequence
 				}
-			});
-			ws.send(j);
+			}));
 		}
 		else
 		{
-			var j = JSON.stringify({
+			ws.send(JSON.stringify({
 				"op": 2,
 				"d": {
 					"token": bot_token,
@@ -166,8 +215,7 @@ async function onMessage(ws, resume, ev)
 					"compress": false,
 					"large_threshold": 250,
 				}
-			});
-			ws.send(j);
+			}));
 		}
 	}
 	else if(parsed.op === 11)
@@ -181,13 +229,15 @@ async function onMessage(ws, resume, ev)
 		{
 			websocketSessionId = parsed.d.session_id;
 
-			var g = "No Game, Life";
-			updateGame(ws, g)
-			updateGameTimer = setInterval(() => updateGame(ws, g), heartbeatInterval*10);
+			if(heartbeatInterval)
+			{
+				updateGame(ws, game)
+				updateGameTimer = setInterval(() => updateGame(ws, game), heartbeatInterval*10);
+			}
 		}
 		else if(parsed.t == "MESSAGE_CREATE")
 		{
-			var messageData = parsed.d;
+			const messageData = parsed.d;
 			channelOps.registerChannel(messageData);
 
 			doCommand(prefix, commands.anywhere, messageData);
@@ -196,7 +246,7 @@ async function onMessage(ws, resume, ev)
 		}
 		else if(parsed.t == "MESSAGE_REACTION_ADD")
 		{
-			var messageData = parsed.d;
+			const messageData = parsed.d;
 			channelOps.registerChannel(messageData);
 			if(channelOps.isEnabled(messageData.channel_id))
 			{
@@ -209,17 +259,17 @@ async function onMessage(ws, resume, ev)
 
 					log(messageData.user_id + " quoted " + quotedUser.user.id + ": " + messageData.message_id);
 
-					var d = ()=>(Math.floor(Math.random()*256)).toString(16);
-					var s = "0x"+d()+d()+d();
-					var m = "";
+					const d = ()=>(Math.floor(Math.random()*256)).toString(16);
+					const s = "0x"+d()+d()+d();
+					let m = "";
 					if(channelOps.isMentionEnabled(messageData.channel_id))
 						m = "<@!" + messageData.user_id + "> quoted <@!" + quotedUser.user.id + ">:";
 					else
 						m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";
 
-					var re = new RegExp("https?:\/\/[^ \n]+\.(jpg|png)", "i");
+					const re = new RegExp("https?:\/\/[^ \n]+\.(jpg|png)", "i");
 
-					var embed = {
+					let embed = {
 						color: parseInt(s),
 						timestamp: msg.timestamp,
 						author: {
@@ -228,7 +278,7 @@ async function onMessage(ws, resume, ev)
 						},
 						description: msg.content,
 					};
-					var img = re.exec(msg.content);
+					const img = re.exec(msg.content);
 					if(img !== null)
 					{
 						embed.image = {
@@ -238,7 +288,7 @@ async function onMessage(ws, resume, ev)
 					else
 					{
 						msg.attachments.some(v => {
-							var im = re.exec(v.url);
+							const im = re.exec(v.url);
 							if(im !== null)
 							{
 								embed.image = {
@@ -269,56 +319,4 @@ if(bot_token)
 else
 {
 	log("No bot token provided");
-}
-
-async function doCommand(commandPrefix, commandList, messageData)
-{
-	let funcName = Object.keys(commandList).find(v => {
-		return messageData.content.startsWith(commandPrefix + v)
-	})
-	if(funcName)
-	{
-		commandList[funcName].func(messageData);
-	}
-}
-
-async function helpCommand(messageData)
-{
-	var d = ()=>(Math.floor(Math.random()*256)).toString(16);
-	var s = "0x"+d()+d()+d();
-
-	let commandEmbed = {
-		title: "Commands",
-		description: "Add a :hash: react to quote a message",
-		color: parseInt(s),
-		fields: []
-	};
-	listCommands = (list) => {
-		Object.keys(list).forEach(v => {
-			if(v && list[v].text.length)
-			commandEmbed.fields.push({
-				name: v,
-				value: list[v].text
-			});
-		});
-	}
-	listCommands(commands.anywhere);
-	listCommands(commands.enabled);
-
-	dr.sendMessage("Here you go <@" + messageData.author.id + ">",
-					messageData.channel_id, commandEmbed);
-}
-
-const commands = {
-	anywhere: {
-		help: {
-			text: "Show this text",
-			func: helpCommand,
-		},
-		...channelOps.commands.anywhere
-	},
-	enabled: {
-		...channelOps.commands.enabled,
-		...fortune.commands
-	}
 }
