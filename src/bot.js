@@ -48,7 +48,7 @@ async function checkHasRoles(roleMask, channel_id, author_id)
 		var p = v.permissions & roleMask;
 		if(p > 0)
 			return true;
-		else 
+		else
 			return false;
 	});
 }
@@ -60,7 +60,7 @@ async function start()
 	var jsonBody = body;
 	console.log(jsonBody);
 	gatewayURL = jsonBody.url + "/?v=6&encoding=json";
-	
+
 	connect(false);
 }
 
@@ -113,10 +113,10 @@ function connect(resume)
 	var ws = new WebSocket(gatewayURL);
 	log("Attempting connection...");
 	var heartbeatInterval;
-	
+
 	readChannels();
 	fortune.loadResponses();
-	
+
 	ws.onopen = onOpen;
 	ws.onclose = onClose;
 	ws.onerror = onError;
@@ -131,7 +131,7 @@ function onOpen(ev)
 function onClose(ev)
 {
 	log("Connection closed", ev.code,ev.reason);
-	
+
 	if(ev.code != 1012)
 	{
 		if(ws.readyState == ws.CLOSED)
@@ -150,7 +150,7 @@ function onClose(ev)
 
 function onError()
 {
-	log("Websocket Error: ", ev);	
+	log("Websocket Error: ", ev);
 }
 
 async function onMessage(ws, resume, ev)
@@ -173,7 +173,7 @@ async function onMessage(ws, resume, ev)
 		heartbeatTimer = setInterval(function() {
 			sendHeartbeat(ws, heartbeatInterval);
 		}, heartbeatInterval);
-		
+
 		if(resume)
 		{
 			var j = JSON.stringify({
@@ -214,7 +214,7 @@ async function onMessage(ws, resume, ev)
 		if(parsed.t === "READY")
 		{
 			websocketSessionId = parsed.d.session_id;
-			
+
 			var g = "No Game, Life";
 			updateGame(ws, g)
 			updateGameTimer = setInterval(() => updateGame(ws, g), heartbeatInterval*10);
@@ -223,7 +223,7 @@ async function onMessage(ws, resume, ev)
 		{
 			var messageData = parsed.d;
 			addChannel(messageData);
-			
+
 			doCommand(prefix, commands.anywhere, messageData);
 			doCommand(prefix, commands.enabled, messageData);
 		}
@@ -241,7 +241,7 @@ async function onMessage(ws, resume, ev)
 					const quotingUser = await dr.getGuildUser(messageData.user_id, channel.guild_id);
 
 					log(messageData.user_id + " quoted " + quotedUser.user.id + ": " + messageData.message_id);
-					
+
 					var d = ()=>(Math.floor(Math.random()*256)).toString(16);
 					var s = "0x"+d()+d()+d();
 					var m = "";
@@ -249,9 +249,9 @@ async function onMessage(ws, resume, ev)
 						m = "<@!" + messageData.user_id + "> quoted <@!" + quotedUser.user.id + ">:";
 					else if(!channels[messageData.channel_id].mention)
 						m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";
-					
+
 					var re = new RegExp("https?:\/\/[^ \n]+\.(jpg|png)", "i");
-					
+
 					var embed = {
 						color: parseInt(s),
 						timestamp: msg.timestamp,
@@ -286,7 +286,7 @@ async function onMessage(ws, resume, ev)
 							}
 						});
 					}
-									
+
 					dr.sendMessage(m, messageData.channel_id, embed);
 					dr.deleteReact(channel.id, messageData.message_id, "%23%E2%83%A3", messageData.user_id);
 				}
@@ -319,7 +319,7 @@ async function helpCommand(messageData)
 {
 	var d = ()=>(Math.floor(Math.random()*256)).toString(16);
 	var s = "0x"+d()+d()+d();
-	
+
 	let commandEmbed = {
 		title: "Commands",
 		description: "Add a :hash: react to quote a message",
@@ -342,7 +342,7 @@ async function helpCommand(messageData)
 	});
 
 	console.log(commandEmbed);
-	dr.sendMessage("Here you go <@" + messageData.author.id + ">", 
+	dr.sendMessage("Here you go <@" + messageData.author.id + ">",
 					messageData.channel_id, commandEmbed);
 }
 
@@ -357,7 +357,7 @@ const commands = {
 			func: async (messageData) => {
 				const result = await checkHasRoles(0x00000008, messageData.channel_id, messageData.author.id);
 				console.log(result);
-	
+
 				if(result)
 				{
 					addChannel(messageData);
@@ -373,14 +373,14 @@ const commands = {
 			text: "Tell the bot to stop watching for commands in this channel.",
 			func: async (messageData) => {
 				const result = await checkHasRoles(0x00000008, messageData.channel_id, messageData.author.id);
-						
+
 				if(result)
 				{
 					addChannel(messageData);
 					channels[messageData.channel_id].enabled = false;
 					writeChannels();
 					dr.sendMessage("No longer doing things in this channel :sob:", messageData.channel_id);
-				}		
+				}
 			}
 		},
 		...fortune.commands

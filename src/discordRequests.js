@@ -11,7 +11,7 @@ const standardOptions = {
 	json:true
 };
 
-function createOptions(method, url, body) 
+function createOptions(method, url, body)
 {
 	return {
 		...standardOptions,
@@ -23,7 +23,7 @@ function createOptions(method, url, body)
 
 module.exports.getGateway = () => {
 	const options = createOptions(
-		"GET", 
+		"GET",
 		"/gateway/bot"
 	);
 	return request(options).catch(err => {
@@ -33,7 +33,7 @@ module.exports.getGateway = () => {
 
 module.exports.sendMessage = (messageContent, channel, embed) => {
 	const options = createOptions(
-		"POST", 
+		"POST",
 		"/channels/" + channel + "/messages",
 		{
 			"content": messageContent,
@@ -47,7 +47,7 @@ module.exports.sendMessage = (messageContent, channel, embed) => {
 
 module.exports.getMessage = (messageId, channel) => {
 	const options = createOptions(
-		"GET", 
+		"GET",
 		"/channels/" + channel + "/messages/" + messageId
 	);
 	return request(options).catch(err => {
@@ -57,7 +57,7 @@ module.exports.getMessage = (messageId, channel) => {
 
 module.exports.getGuildUser = (userId, guildId) => {
 	const options = createOptions(
-		"GET", 
+		"GET",
 		"/guilds/" + guildId + "/members/" + userId
 	);
 	return request(options).catch(err => {
@@ -67,7 +67,7 @@ module.exports.getGuildUser = (userId, guildId) => {
 
 module.exports.getGuildRoles = (guildId) => {
 	const options = createOptions(
-		"GET", 
+		"GET",
 		"/guilds/" + guildId + "/roles"
 	);
 	return request(options).catch(err => {
@@ -77,7 +77,7 @@ module.exports.getGuildRoles = (guildId) => {
 
 module.exports.getChannel = (channelId) => {
 	const options = createOptions(
-		"GET", 
+		"GET",
 		"/channels/" + channelId
 	);
 	return request(options).catch(err => {
@@ -87,7 +87,7 @@ module.exports.getChannel = (channelId) => {
 
 module.exports.deleteReact = (channelId, messageId, emoji, userId) => {
 	const options = createOptions(
-		"DELETE", 
+		"DELETE",
 		"/channels/" + channelId + "/messages/" + messageId + "/reactions/" + emoji + "/" + userId
 	);
 	return request(options).catch(err => {
