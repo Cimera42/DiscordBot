@@ -5,8 +5,8 @@ function now()
 	return "[" + new Date().toLocaleString("en-au", {hour12:false}) + "]";
 }
 module.exports = function() {
-	var s = now();
-	for(key in arguments)
+	let s = now();
+	for(const key in arguments)
 	{
 		try
 		{
@@ -18,5 +18,8 @@ module.exports = function() {
 		}
 	}
 	console.log(s);
-	fs.appendFile("log.log", s + "\r\n", err => {if(err) console.log(err)});
-}
+	fs.appendFile("log.log", s + "\r\n", err => {
+		if(err)
+			console.log(err);
+	});
+};

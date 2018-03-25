@@ -1,13 +1,9 @@
-const request = require("request-promise");
-
 const { bot_token, prefix, game } = require("./config.json");
-const api = "https://discordapp.com/api";
 
 const log = require("./log.js");
 const dr = require("./discordRequests.js");
 
 const WebSocket = require("ws");
-const fs = require("fs");
 
 const fortune = require("./8ball.js");
 const channelOps = require("./channelOps.js");
@@ -32,13 +28,13 @@ const commands = {
 		...channelOps.commands.enabled,
 		...fortune.commands
 	}
-}
+};
 
 async function doCommand(commandPrefix, commandList, messageData)
 {
 	let funcName = Object.keys(commandList).find(v => {
-		return messageData.content.startsWith(commandPrefix + v)
-	})
+		return messageData.content.startsWith(commandPrefix + v);
+	});
 	if(funcName)
 	{
 		commandList[funcName].func(messageData);
@@ -56,20 +52,20 @@ async function helpCommand(messageData)
 		color: parseInt(s),
 		fields: []
 	};
-	listCommands = (list) => {
+	const listCommands = (list) => {
 		Object.keys(list).forEach(v => {
 			if(v && list[v].text.length)
-			commandEmbed.fields.push({
-				name: v,
-				value: list[v].text
-			});
+				commandEmbed.fields.push({
+					name: v,
+					value: list[v].text
+				});
 		});
-	}
+	};
 	listCommands(commands.anywhere);
 	listCommands(commands.enabled);
 
-	dr.sendMessage("Here you go <@" + messageData.author.id + ">",
-					messageData.channel_id, commandEmbed);
+	dr.sendMessage("Here you go <@" + messageData.author.id + ">", 
+		messageData.channel_id, commandEmbed);
 }
 
 async function start()

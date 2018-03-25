@@ -10,7 +10,9 @@
     "websocket": "^1.0.24",
     "ws": "^1.1.1"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "eslint": "^4.19.1"
+  },
   "scripts": {
     "start": "node ./src/bot.js",
     "refresh": "nodemon -e js",

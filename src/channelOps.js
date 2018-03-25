@@ -1,5 +1,6 @@
 const fs = require("fs");
 const dr = require("./discordRequests.js");
+const log = require("./log.js");
 
 let channels;
 function loadChannels()
@@ -34,14 +35,10 @@ async function checkHasRoles(roleMask, channel_id, author_id)
 	const user = await dr.getGuildUser(author_id, channel.guild_id);
 	const roles = await dr.getGuildRoles(channel.guild_id);
 
-	var rids = user.roles;
-	var r2ids = roles.map(v=>v.id);
+	const rids = user.roles;
 	return roles.filter(v => rids.includes(v.id)).some(v=>{
-		var p = v.permissions & roleMask;
-		if(p > 0)
-			return true;
-		else
-			return false;
+		const p = v.permissions & roleMask;
+		return p > 0;
 	});
 }
 

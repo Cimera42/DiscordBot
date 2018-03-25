@@ -1,5 +1,6 @@
 const fs = require("fs");
 const dr = require("./discordRequests.js");
+const log = require("./log.js");
 
 let responses;
 function loadResponses()
@@ -8,7 +9,10 @@ function loadResponses()
 }
 function writeResponses()
 {
-	fs.writeFile("./responses.json", JSON.stringify(responses,null,4), err => {if(err) log(err)});
+	fs.writeFile("./responses.json", JSON.stringify(responses,null,4), err => {
+		if(err) 
+			log(err);
+	});
 }
 
 const commands = {
@@ -41,10 +45,10 @@ const commands = {
 			dr.sendMessage(list, messageData.channel_id);
 		}
 	}
-}
+};
 
 module.exports = {
 	commands,
 	loadResponses,
 	writeResponses
-}
+};
