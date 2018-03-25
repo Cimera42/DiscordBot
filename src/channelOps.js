@@ -9,7 +9,10 @@ function loadChannels()
 }
 function writeChannels()
 {
-	fs.writeFile("./channels.json", JSON.stringify(channels,null,4), err => {if(err) log(err)});
+	fs.writeFile("./channels.json", JSON.stringify(channels,null,4), err => {
+		if(err) 
+			log(err);
+	});
 }
 function registerChannel(message)
 {
@@ -76,7 +79,7 @@ const commands = {
 			}
 		}
 	}
-}
+};
 
 module.exports = {
 	commands,
@@ -84,4 +87,4 @@ module.exports = {
 	registerChannel,
 	isEnabled,
 	isMentionEnabled
-}
+};

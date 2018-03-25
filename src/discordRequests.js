@@ -18,7 +18,7 @@ function createOptions(method, url, body)
 		method,
 		url: api + url,
 		body
-	}
+	};
 }
 
 module.exports.getGateway = () => {
@@ -29,7 +29,7 @@ module.exports.getGateway = () => {
 	return request(options).catch(err => {
 		log("Error getGateway: " + err);
 	});
-}
+};
 
 module.exports.sendMessage = (messageContent, channel, embed) => {
 	const options = createOptions(
@@ -43,7 +43,7 @@ module.exports.sendMessage = (messageContent, channel, embed) => {
 	return request(options).catch(err => {
 		log("Error sendMessage: " + err);
 	});
-}
+};
 
 module.exports.getMessage = (messageId, channel) => {
 	const options = createOptions(
@@ -53,7 +53,7 @@ module.exports.getMessage = (messageId, channel) => {
 	return request(options).catch(err => {
 		log("Error getMessage: " + err);
 	});
-}
+};
 
 module.exports.getGuildUser = (userId, guildId) => {
 	const options = createOptions(
@@ -63,7 +63,7 @@ module.exports.getGuildUser = (userId, guildId) => {
 	return request(options).catch(err => {
 		log("Error getGuildUser: " + err);
 	});
-}
+};
 
 module.exports.getGuildRoles = (guildId) => {
 	const options = createOptions(
@@ -73,7 +73,7 @@ module.exports.getGuildRoles = (guildId) => {
 	return request(options).catch(err => {
 		log("Error getGuildRoles: " + err);
 	});
-}
+};
 
 module.exports.getChannel = (channelId) => {
 	const options = createOptions(
@@ -83,7 +83,7 @@ module.exports.getChannel = (channelId) => {
 	return request(options).catch(err => {
 		log("Error getChannel: " + err);
 	});
-}
+};
 
 module.exports.deleteReact = (channelId, messageId, emoji, userId) => {
 	const options = createOptions(
@@ -93,4 +93,4 @@ module.exports.deleteReact = (channelId, messageId, emoji, userId) => {
 	return request(options).catch(err => {
 		log("Error deleteReact: " + err);
 	});
-}
+};

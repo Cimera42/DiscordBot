@@ -130,17 +130,17 @@ function connect(resume)
 	fortune.loadResponses();
 
 	ws.onopen = onOpen;
-	ws.onclose = onClose;
+	ws.onclose = onClose.bind(null, ws);
 	ws.onerror = onError;
 	ws.onmessage = onMessage.bind(null, ws, resume);
 }
 
-function onOpen(ev)
+function onOpen()
 {
 	log("Connection opened");
 }
 
-function onClose(ev)
+function onClose(ws, ev)
 {
 	log("Connection closed", ev.code,ev.reason);
 
@@ -156,11 +156,11 @@ function onClose(ev)
 	}
 	else
 	{
-		log("Not triggering reconnect")
+		log("Not triggering reconnect");
 	}
 }
 
-function onError()
+function onError(ev)
 {
 	log("Websocket Error: ", ev);
 }
@@ -227,7 +227,7 @@ async function onMessage(ws, resume, ev)
 
 			if(heartbeatInterval)
 			{
-				updateGame(ws, game)
+				updateGame(ws, game);
 				updateGameTimer = setInterval(() => updateGame(ws, game), heartbeatInterval*10);
 			}
 		}
@@ -262,8 +262,9 @@ async function onMessage(ws, resume, ev)
 						m = "<@!" + messageData.user_id + "> quoted <@!" + quotedUser.user.id + ">:";
 					else
 						m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";
-
-					const re = new RegExp("https?:\/\/[^ \n]+\.(jpg|png)", "i");
+					
+					
+					const re = /https?:\/\/[^\s]+\.(jpg|png)/i;
 
 					let embed = {
 						color: parseInt(s),
