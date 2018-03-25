@@ -1,0 +1,9 @@
+{
+	"bot_token": null,
+	"prefix": "-",
+	"game": "Test Mode",
+	"files": {
+		"channels": "./channels.test.json",
+		"responses": "./responses.test.json"
+	}
+}

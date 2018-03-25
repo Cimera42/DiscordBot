@@ -1,5 +1,9 @@
 {
 	"bot_token": null,
 	"prefix": "-",
-	"game": "No Game, Life"
+	"game": "No Game, Life",
+	"files": {
+		"channels": "./channels.json",
+		"responses": "./responses.json"
+	}
 }

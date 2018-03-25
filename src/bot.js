@@ -1,4 +1,4 @@
-const { bot_token, prefix, game } = require("./config.json");
+const { bot_token, prefix, game } = require("./config.js");
 
 const log = require("./log.js");
 const dr = require("./discordRequests.js");
@@ -121,13 +121,13 @@ function checkHeartbeat(ws, timeoutTime)
 	}
 }
 
-function connect(resume)
+async function connect(resume)
 {
 	let ws = new WebSocket(gatewayURL);
 	log("Attempting connection...");
 
-	channelOps.loadChannels();
-	fortune.loadResponses();
+	await channelOps.loadChannels();
+	await fortune.loadResponses();
 
 	ws.onopen = onOpen;
 	ws.onclose = onClose.bind(null, ws);
@@ -236,9 +236,12 @@ async function onMessage(ws, resume, ev)
 			const messageData = parsed.d;
 			channelOps.registerChannel(messageData);
 
-			doCommand(prefix, commands.anywhere, messageData);
-			if(channelOps.isEnabled(messageData.channel_id))
-				doCommand(prefix, commands.enabled, messageData);
+			if(messageData.content.startsWith(prefix))
+			{
+				doCommand(prefix, commands.anywhere, messageData);
+				if(channelOps.isEnabled(messageData.channel_id))
+					doCommand(prefix, commands.enabled, messageData);
+			}
 		}
 		else if(parsed.t == "MESSAGE_REACTION_ADD")
 		{

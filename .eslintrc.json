@@ -3,7 +3,10 @@
         "es6": true,
         "node": true
     },
-	"extends": "eslint:recommended",
+	"extends": [
+		"eslint:recommended",
+		"plugin:jest/recommended"
+	],
 	"parserOptions": {
         "sourceType": "module",
 		"ecmaVersion": 8,
@@ -29,5 +32,8 @@
             "always"
 		],
 		"no-console": "off"
-    }
+	},
+	"plugins": [
+		"jest"
+	]
 }

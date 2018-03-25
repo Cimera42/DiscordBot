@@ -4,6 +4,7 @@
   "description": "",
   "main": "./src/bot.js",
   "dependencies": {
+    "fs-extra": "^5.0.0",
     "nodemon": "^1.11.0",
     "request": "^2.75.0",
     "request-promise": "^4.2.1",
@@ -11,12 +12,15 @@
     "ws": "^1.1.1"
   },
   "devDependencies": {
-    "eslint": "^4.19.1"
+    "eslint": "^4.19.1",
+    "eslint-plugin-jest": "^21.15.0",
+    "jest": "^22.4.3"
   },
   "scripts": {
     "start": "node ./src/bot.js",
     "refresh": "nodemon -e js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "set NODE_ENV=test&& jest",
+    "lint": "eslint src"
   },
   "author": "Tim Porritt",
   "license": "ISC"

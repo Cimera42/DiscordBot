@@ -1,18 +1,19 @@
-const fs = require("fs");
+const fs = require("fs-extra");
 const dr = require("./discordRequests.js");
 const log = require("./log.js");
+const { files } = require("./config.js");
 
 let channels;
-function loadChannels()
+async function loadChannels()
 {
-	channels = JSON.parse(fs.readFileSync("./channels.json").toString());
+	const file = await fs.readFile(files.channels, "utf8")
+		.catch(err => log(err));
+	channels = JSON.parse(file.toString());
 }
 function writeChannels()
 {
-	fs.writeFile("./channels.json", JSON.stringify(channels,null,4), err => {
-		if(err) 
-			log(err);
-	});
+	return fs.writeFile(files.channels, JSON.stringify(channels,null,4))
+		.catch(err => log(err));
 }
 function registerChannel(message)
 {
@@ -22,10 +23,18 @@ function registerChannel(message)
 		log("Adding channel " + message.channel_id);
 	}
 }
+function getChannels()
+{
+	return channels;
+}
 
 function isEnabled(channelId)
 {
 	return channels[channelId].enabled;
+}
+function setEnabled(channelId, en)
+{
+	channels[channelId].enabled = en;
 }
 function isMentionEnabled(channelId)
 {
@@ -56,7 +65,7 @@ const commands = {
 				if(result)
 				{
 					registerChannel(messageData);
-					channels[messageData.channel_id].enabled = true;
+					setEnabled(messageData.channel_id, true);
 					writeChannels();
 					dr.sendMessage("Now doing things in this channel :stuck_out_tongue:", messageData.channel_id);
 				}
@@ -72,7 +81,7 @@ const commands = {
 				if(result)
 				{
 					registerChannel(messageData);
-					channels[messageData.channel_id].enabled = false;
+					setEnabled(messageData.channel_id, false);
 					writeChannels();
 					dr.sendMessage("No longer doing things in this channel :sob:", messageData.channel_id);
 				}
@@ -83,8 +92,11 @@ const commands = {
 
 module.exports = {
 	commands,
+	getChannels,
 	loadChannels,
+	writeChannels,
 	registerChannel,
 	isEnabled,
+	setEnabled,
 	isMentionEnabled
 };

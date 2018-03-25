@@ -1,18 +1,37 @@
-const fs = require("fs");
+const fs = require("fs-extra");
 const dr = require("./discordRequests.js");
 const log = require("./log.js");
+const { files } = require("./config.js");
 
 let responses;
-function loadResponses()
+async function loadResponses()
 {
-	responses = JSON.parse(fs.readFileSync("./responses.json").toString());
+	const file = await fs.readFile(files.responses, "utf8");
+	responses = JSON.parse(file.toString());
 }
 function writeResponses()
 {
-	fs.writeFile("./responses.json", JSON.stringify(responses,null,4), err => {
-		if(err) 
-			log(err);
+	return fs.writeFile(files.responses, JSON.stringify(responses,null,4))
+		.catch(err => log(err));
+}
+
+function getResponses()
+{
+	return responses;
+}
+function addResponse(newResponse)
+{
+	responses.push(newResponse);
+}
+function listResponses()
+{
+	let list = "";
+	responses.forEach((v,i) => {
+		if(i !== 0)
+			list += "\n";
+		list += v;
 	});
+	return list;
 }
 
 const commands = {
@@ -23,7 +42,7 @@ const commands = {
 			newResponse.trim();
 			if(newResponse.length >= 1)
 			{
-				responses.push(newResponse);
+				addResponse(newResponse);
 				writeResponses();
 				dr.sendMessage("Added `" + newResponse + "`", messageData.channel_id);
 			}
@@ -40,8 +59,7 @@ const commands = {
 	responseList: {
 		text: "List 8ball responses",
 		func: async (messageData) => {
-			let list = "";
-			responses.forEach(v => list += v + "\n");
+			const list = listResponses();
 			dr.sendMessage(list, messageData.channel_id);
 		}
 	}
@@ -50,5 +68,8 @@ const commands = {
 module.exports = {
 	commands,
 	loadResponses,
-	writeResponses
+	writeResponses,
+	getResponses,
+	addResponse,
+	listResponses
 };
