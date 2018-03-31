@@ -1,4 +1,4 @@
-const { bot_token, prefix, game } = require("./config.js");
+const { bot_token, prefix, game } = require("./config/config.js");
 
 const log = require("./log.js");
 const dr = require("./discordRequests.js");

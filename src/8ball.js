@@ -1,7 +1,7 @@
 const fs = require("fs-extra");
 const dr = require("./discordRequests.js");
 const log = require("./log.js");
-const { files } = require("./config.js");
+const { files } = require("./config/config.js");
 
 let responses;
 async function loadResponses()

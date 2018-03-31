@@ -1,5 +1,5 @@
 const fortune = require("../8ball.js");
-const { files } = require("../config.js");
+const { files } = require("../config/config.js");
 const fs = require("fs-extra");
 
 beforeAll(() => {
