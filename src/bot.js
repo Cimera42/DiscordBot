@@ -138,6 +138,7 @@ async function connect(resume)
 function onOpen()
 {
 	log("Connection opened");
+	lastHeartbeatAck = new Date();
 }
 
 function onClose(ws, ev)
@@ -264,8 +265,7 @@ async function onMessage(ws, resume, ev)
 					if(channelOps.isMentionEnabled(messageData.channel_id))
 						m = "<@!" + messageData.user_id + "> quoted <@!" + quotedUser.user.id + ">:";
 					else
-						m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";
-					
+						m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";					
 					
 					const re = /https?:\/\/[^\s]+\.(jpg|png)/i;
 
