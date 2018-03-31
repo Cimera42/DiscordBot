@@ -3,7 +3,7 @@
 	"prefix": "-",
 	"game": "No Game, Life",
 	"files": {
-		"channels": "./channels.json",
-		"responses": "./responses.json"
+		"channels": "./data_sources/channels.json",
+		"responses": "./data_sources/responses.json"
 	}
 }

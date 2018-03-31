@@ -3,7 +3,7 @@
 	"prefix": "-",
 	"game": "Test Mode",
 	"files": {
-		"channels": "./channels.test.json",
-		"responses": "./responses.test.json"
+		"channels": "./data_sources/channels.test.json",
+		"responses": "./data_sources/responses.test.json"
 	}
 }
