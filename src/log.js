@@ -1,11 +1,12 @@
 const fs = require("fs-extra");
 
-function now()
+function nowString(date)
 {
-	return "[" + new Date().toLocaleString("en-au", {hour12:false}) + "]";
+	return "[" + date.toLocaleString("en-au", {hour12:false}) + "]";
 }
 module.exports = function() {
-	let s = now();
+	let date = new Date();
+	let s = nowString(date);
 	for(const key in arguments)
 	{
 		try
@@ -18,7 +19,8 @@ module.exports = function() {
 		}
 	}
 	console.log(s);
-	fs.appendFile("log.log", s + "\r\n", err => {
+	const paddedMonth = `${date.getUTCMonth()+1}`.padStart(2, "0");
+	fs.appendFile(`${date.getUTCFullYear()}-${paddedMonth}-log.log`, s + "\r\n", err => {
 		if(err)
 			console.log(err);
 	});
