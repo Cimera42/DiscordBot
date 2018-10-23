@@ -1,9 +1,0 @@
-{
-	"bot_token": null,
-	"prefix": "-",
-	"game": "No Game, Life",
-	"files": {
-		"channels": "./data_sources/channels.json",
-		"responses": "./data_sources/responses.json"
-	}
-}

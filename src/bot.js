@@ -5,7 +5,7 @@ const dr = require("./discordRequests.js");
 
 const WebSocket = require("ws");
 
-const fortune = require("./8ball.js");
+const rythmLogger = require("./rythmLogger.js");
 const channelOps = require("./channelOps.js");
 
 let gatewayURL;
@@ -26,7 +26,7 @@ const commands = {
 	},
 	enabled: {
 		...channelOps.commands.enabled,
-		...fortune.commands
+		...rythmLogger.commands
 	}
 };
 
@@ -64,7 +64,7 @@ async function helpCommand(messageData)
 	listCommands(commands.anywhere);
 	listCommands(commands.enabled);
 
-	dr.sendMessage("Here you go <@" + messageData.author.id + ">", 
+	dr.sendMessage("Here you go <@" + messageData.author.id + ">",
 		messageData.channel_id, commandEmbed);
 }
 
@@ -127,7 +127,7 @@ async function connect(resume)
 	log("Attempting connection...");
 
 	await channelOps.loadChannels();
-	await fortune.loadResponses();
+	await rythmLogger.loadSongs();
 
 	ws.onopen = onOpen;
 	ws.onclose = onClose.bind(null, ws);
@@ -265,8 +265,8 @@ async function onMessage(ws, resume, ev)
 					if(channelOps.isMentionEnabled(messageData.channel_id))
 						m = "<@!" + messageData.user_id + "> quoted <@!" + quotedUser.user.id + ">:";
 					else
-						m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";					
-					
+						m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";
+
 					const re = /https?:\/\/[^\s]+\.(jpg|png)/i;
 
 					let embed = {
