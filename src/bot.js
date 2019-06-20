@@ -64,7 +64,7 @@ async function helpCommand(messageData)
 	listCommands(commands.anywhere);
 	listCommands(commands.enabled);
 
-	dr.sendMessage("Here you go <@" + messageData.author.id + ">", 
+	dr.sendMessage("Here you go <@" + messageData.author.id + ">",
 		messageData.channel_id, commandEmbed);
 }
 
@@ -252,9 +252,9 @@ async function onMessage(ws, resume, ev)
 			{
 				if(messageData.emoji.name.includes("#"))
 				{
-					const msg = await dr.getMessage(messageData.message_id, messageData.channel_id);
+					const quotedMsg = await dr.getMessage(messageData.message_id, messageData.channel_id);
 					const channel = await dr.getChannel(messageData.channel_id);
-					const quotedUser = await dr.getGuildUser(msg.author.id, channel.guild_id);
+					const quotedUser = await dr.getGuildUser(quotedMsg.author.id, channel.guild_id);
 					const quotingUser = await dr.getGuildUser(messageData.user_id, channel.guild_id);
 
 					log(messageData.user_id + " quoted " + quotedUser.user.id + ": " + messageData.message_id);
@@ -265,29 +265,29 @@ async function onMessage(ws, resume, ev)
 					if(channelOps.isMentionEnabled(messageData.channel_id))
 						m = "<@!" + messageData.user_id + "> quoted <@!" + quotedUser.user.id + ">:";
 					else
-						m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";					
-					
+						m = "**" + (quotingUser.nick || quotingUser.user.username) + "** quoted **" + (quotedUser.nick || quotedUser.user.username) + "**:";
+
 					const re = /https?:\/\/[^\s]+\.(jpg|png)/i;
 
 					let embed = {
 						color: parseInt(s),
-						timestamp: msg.timestamp,
+						timestamp: quotedMsg.timestamp,
 						author: {
 							name: quotedUser.nick || quotedUser.user.username,
 							icon_url: quotedUser.user.avatar && "https://cdn.discordapp.com/avatars/" + quotedUser.user.id + "/" + quotedUser.user.avatar + ".png",
 						},
-						description: msg.content,
+						description: quotedMsg.content + `\n[*Link*](https://discordapp.com/channels/${messageData.guild_id}/${messageData.channel_id}/${messageData.message_id})`,
 					};
-					const img = re.exec(msg.content);
+					const img = re.exec(quotedMsg.content);
 					if(img !== null)
 					{
 						embed.image = {
-							"url":re.exec(msg.content)[0]
+							"url":re.exec(quotedMsg.content)[0]
 						};
 					}
 					else
 					{
-						msg.attachments.some(v => {
+						quotedMsg.attachments.some(v => {
 							const im = re.exec(v.url);
 							if(im !== null)
 							{
