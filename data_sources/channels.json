@@ -8,7 +8,7 @@
         "mention": false
     },
     "239298735509733378": {
-        "enabled": false,
+        "enabled": true,
         "mention": false
     },
     "239253739305828352": {
@@ -32,6 +32,22 @@
         "mention": false
     },
     "397629458485608452": {
+        "enabled": true,
+        "mention": false
+    },
+    "398042100484014081": {
+        "enabled": true,
+        "mention": false
+    },
+    "239313461300035586": {
+        "enabled": false,
+        "mention": false
+    },
+    "462605365759049747": {
+        "enabled": true,
+        "mention": false
+    },
+    "462606558606655488": {
         "enabled": true,
         "mention": false
     }
