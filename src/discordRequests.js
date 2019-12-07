@@ -94,3 +94,13 @@ module.exports.deleteReact = (channelId, messageId, emoji, userId) => {
 		log("Error deleteReact: " + err);
 	});
 };
+
+module.exports.getReacts = (channelId, messageId, emoji) => {
+	const options = createOptions(
+		"GET",
+		"/channels/" + channelId + "/messages/" + messageId + "/reactions/" + emoji
+	);
+	return request(options).catch(err => {
+		log("Error getReacts: " + err);
+	});
+};

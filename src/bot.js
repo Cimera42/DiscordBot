@@ -305,7 +305,7 @@ async function onMessage(ws, resume, ev)
 					}
 
 					dr.sendMessage(m, messageData.channel_id, embed);
-					dr.deleteReact(channel.id, messageData.message_id, "%23%E2%83%A3", messageData.user_id);
+					dr.deleteReact(channel.id, messageData.message_id, "%23%EF%B8%8F%E2%83%A3", messageData.user_id);
 				}
 			}
 		}
