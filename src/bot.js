@@ -276,7 +276,7 @@ async function onMessage(ws, resume, ev)
 							name: quotedUser.nick || quotedUser.user.username,
 							icon_url: quotedUser.user.avatar && "https://cdn.discordapp.com/avatars/" + quotedUser.user.id + "/" + quotedUser.user.avatar + ".png",
 						},
-						description: quotedMsg.content + `\n[*Link*](https://discordapp.com/channels/${messageData.guild_id}/${messageData.channel_id}/${messageData.message_id})`,
+						description: quotedMsg.content + `\n[*Link*](https://discord.com/channels/${messageData.guild_id}/${messageData.channel_id}/${messageData.message_id})`,
 					};
 					const img = re.exec(quotedMsg.content);
 					if(img !== null)
